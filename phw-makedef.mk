@@ -30,16 +30,23 @@ MKDIR=mkdir -p
 
 EBATCH=$(EMACS) -batch -no-site-file
 
-phw_LISP_EL=tree-buffer.el phw-util.el phw-mode-line.el phw-help.el \
-            phw-layout.el phw-layout-defs.el phw-navigate.el phw.el \
-            phw-eshell.el phw-cycle.el phw-face.el phw-compilation.el \
-            phw-upgrade.el phw-create-layout.el silentcomp.el \
-            phw-speedbar.el phw-examples.el phw-tod.el phw-autogen.el \
-	    phw-jde.el phw-file-browser.el phw-method-browser.el \
-	    phw-winman-support.el phw-cedet-wrapper.el \
-	    phw-compatibility.el phw-common-browser.el phw-analyse.el \
-	    phw-symboldef.el phw-semantic.el phw-advice-test.el \
-	    phw-buffertab.el phw-multiframe.el phw-semantic-wrapper.el
+# phw_LISP_EL=tree-buffer.el phw-util.el phw-mode-line.el phw-help.el \
+#             phw-layout.el phw-layout-defs.el phw-navigate.el phw.el \
+#             phw-eshell.el phw-cycle.el phw-face.el phw-compilation.el \
+#             phw-upgrade.el phw-create-layout.el silentcomp.el \
+#             phw-speedbar.el phw-examples.el phw-tod.el phw-autogen.el \
+# 	    phw-jde.el phw-file-browser.el phw-method-browser.el \
+# 	    phw-winman-support.el phw-cedet-wrapper.el \
+# 	    phw-compatibility.el phw-common-browser.el phw-analyse.el \
+# 	    phw-symboldef.el phw-semantic.el phw-advice-test.el \
+# 	    phw-buffertab.el phw-multiframe.el phw-semantic-wrapper.el
+
+phw_LISP_EL=phw-util.el \
+            phw-layout.el phw-layout-defs.el phw.el \
+	    phw-compilation.el \
+	    silentcomp.el \
+	    phw-autogen.el \
+	    phw-advice-test.el
 
 phw_LISP_ELC=$(phw_LISP_EL:.el=.elc)
 

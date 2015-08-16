@@ -89,65 +89,13 @@
 (eval-when-compile
   (require 'silentcomp))
 
-(require 'info)
-
 ;; We need this libraries already here if we miss some requirements
-(require 'phw-upgrade)
 (require 'phw-util)
 
-;; now we load all the cedet stuff
-(require 'phw-cedet-wrapper)
-
-;; if we miss some of the requirements we report an error.
-(when phw-cedet-missing-libraries
-  (if (phw-noninteractive)
-      (phw-error "PHW is missing the libs %s of CEDET - check your CEDET-installation/setup!"
-                 phw-cedet-missing-libraries)
-    (phw-check-requirements)))
-
-;; If we are here we can load PHW because at least we have installed and
-;; loaded all required packages. The correct version will be checked
-;; at start- or byte-compile-time
-
-
-(message "PHW %s uses CEDET %s (contains semantic %s, eieio %s, speedbar %s)."
-         phw-version
-         (or (and (boundp 'cedet-version)
-                  cedet-version)
-             "<unknown version>")
-         (or (and (boundp 'semantic-version)
-                  semantic-version)
-             "<unknown version>")
-         (or (and (boundp 'eieio-version)
-                  eieio-version)
-             "<unknown version>")
-         (or (and (boundp 'speedbar-version)
-                  speedbar-version)
-             "<unknown version>"))
-
 ;; rest of phw loads
-(require 'tree-buffer)
-(require 'phw-file-browser)
-(require 'phw-method-browser)
-(require 'phw-jde)
 (require 'phw-layout)
-(require 'phw-create-layout)
-(require 'phw-mode-line)
-(require 'phw-help)
-(require 'phw-navigate)
-(require 'phw-eshell)
 (require 'phw-compilation)
-(require 'phw-cycle)
-(require 'phw-face)
-(require 'phw-tod)
-(require 'phw-speedbar)
 (require 'phw-autogen)
-(require 'phw-winman-support)
-(require 'phw-compatibility)
-
-;; add-ons
-(require 'phw-analyse)
-(require 'phw-symboldef)
 
 (eval-when-compile
   ;; to avoid compiler grips
@@ -186,89 +134,20 @@ command.")
 ;;====================================================
 
 (defgroup phw nil
-  "Emacs code browser."
-  :group 'tools
+  "Manage a persistent horizontal window."
+  :group 'windows
   :prefix "phw-")
 
-(defgroup phw-general nil
-  "General settings for the Emacs code browser."
+(defgroup phw-hooks nil
+  "Hooks to influence PHW mode."
   :group 'phw
   :prefix "phw-")
 
-(defgroup phw-most-important nil
-  "The most important settings of PHW you should know."
-  :group 'phw
-  :prefix "phw-")
-
-(defcustom phw-use-recursive-edit nil
-  "*Tell PHW to use a recursive edit.
-If set then it can easily be deactivated by \(keyboard-escape-quit)."
-  :group 'phw-general
-  :type 'boolean)
-
-(defcustom phw-auto-activate nil
+(defcustom phw-auto-activate t
   "*Automatically startup PHW when Emacs starts up.
 This should only be true if you always want to run `phw-activate'."
-  :group 'phw-general
-  :group 'phw-most-important
+  :group 'phw
   :type 'boolean)
-
-(defcustom phw-activation-selects-phw-frame-if-already-active 'ask
-  "*Trying to activate an already activated PHW selects the PHW-frame.
-If t then the PHW-frame is selected, if nil then it is not. If 'ask then PHW
-asks if the PHW-frame should be selected if the current-frame is not the
-`phw-frame'."
-  :group 'phw-general
-  :type '(radio (const :tag "Select the PHW-frame" :value t)
-                (const :tag "Ask if the PHW-frame should be selected" :value ask)
-                (const :tag "Do not select the PHW-frame" :value nil)))
-
-(defcustom phw-clear-caches-before-activate nil
-  "*Clear all PHW internal caches before startup.
-If t then PHW clears all its internal caches before starting up. Caches are
-used for files- and subdirs \(see `phw-cache-directory-contents' and
-`phw-cache-directory-contents-not') for semantic-tags and for the
-history-filter.
-
-This caches are completely empty at load-time of the PHW-library!
-
-Default is nil, because is makes sense not to clear these caches at start-time
-because PHW is often deacticated temporally especially in combination with
-window-managers like escreen.el. In these situations the internal state of PHW
-should be preserved for next activation."
-  :group 'phw-general
-  :type 'boolean)
-
-(defcustom phw-stealthy-tasks-delay 1
-  "*Time Emacs must be idle before PHW runs its stealthy tasks.
-Currently PHW performes the following stealthy tasks:
-
-  Prescann directories for emptyness: Prescann directories and display them as
-  empty or not-empty in the directories-buffer. See the documentation of the
-  option `phw-prescan-directories-for-emptyness' for a description.
-
-  File is read only: Check if sourcefile-items of the directories- or
-  sources-buffer are read-only or not. See documentation of the option
-  `phw-sources-perform-read-only-check'.
-
-  Version-control-state: Checks the version-control-state of files in
-  directories which are managed by a VC-backend. See the option
-  `phw-vc-enable-support'.
-
-Here the interval is defined PHW has to be idle before starting with these
-stealthy tasks. It can be a floating-point value in seconds. The value can
-also be changed during running PHW."
-  :group 'phw-general
-  :group 'phw-most-important
-  :type '(number :tag "Idle time before running stealthy tasks"
-                 :value 1)
-  :initialize 'custom-initialize-default
-  :set (function (lambda (sym val)
-                   (set sym val)
-                   (phw-activate-phw-autocontrol-function
-                    val 'phw-stealthy-updates))))
-
-
 
 (defcustom phw-minor-mode-text " PHW"
   "*String to display in the mode line when PHW minor mode is active.
@@ -277,41 +156,8 @@ also be changed during running PHW."
 Because for PHW it is quite obvious if it is active or not when the
 PHW-windows are visible this text is only display in the modeline if the
 PHW-windows are hidden."
-  :group 'phw-general
+  :group 'phw
   :type 'string)
-
-(defcustom phw-auto-compatibility-check t
-  "*Check at PHW-startup if all PHW-options have correct values.
-If not nil then all PHW-options are checked if their current value have the
-correct type. It the type is incorrect the option is either auto. upgraded to
-the new type or reset to the default-value of current PHW if no upgrade is
-possible. This feature can also upgrade options which are renamed in current
-PHW and try to transform the old-value to the new named option. After startup
-all upgraded or reset options are displayed with their old \(before
-upgrade/reset) and new values. See also the commands `phw-upgrade-options' and
-`phw-display-upgraded-options'. If this option is off then the user can
-perform the check and reset manually with `phw-upgrade-options'."
-  :group 'phw-general
-  :type 'boolean)
-
-(defcustom phw-version-check t
-  "*Checks at start-time if the requirements are fulfilled.
-It checks if the required versio of CEDET is installed and loaded into Emacs.
-
-It is strongly recommended to set this option to not nil!"
-  :group 'phw-general
-  :type 'boolean)
-
-(defcustom phw-debug-mode nil
-  "*If not nil PHW displays debug-information in the Messages-buffer.
-This is done for some critical situations concerning semantic-tags and their
-overlays \(or extends for XEmacs). Normally you should not need this switched
-on! But if you get errors like \"destroyed extend\" for XEmacs or
-\"wrong-argument-type\" concerning overlays for GNU Emacs then you should
-switch on this option and submitting a bug-report to the phw-mailing-list
-\(`phw-submit-problem-report') after getting the error again!"
-  :group 'phw-general
-  :type 'boolean)
 
 (defcustom phw-run-ediff-in-phw-frame t
   "*Run ediff-sessions in the same frame as PHW is running.
@@ -320,7 +166,7 @@ restores exactly the \"before-ediff\"-window-layout after quiting ediff. If
 nil then ediff decides in which frame it will run - depending on the current
 window-layout \(e.g. if the phw-windows are currently hidden) this can be the
 phw-frame but this can also be a newly created frame or any other frame."
-  :group 'phw-general
+  :group 'phw
   :type 'boolean)
 
 
@@ -345,7 +191,7 @@ following sequence of hooks:
 3. <Drawing the layout>
 4. `phw-redraw-layout-after-hook'
 5. `phw-activate-hook'"
-  :group 'phw-general
+  :group 'phw-hook
   :type 'hook)
 
 
@@ -358,7 +204,7 @@ This can be used to check some conditions and then only start PHW if all
 conditions are true. For example a function could be added which returns only
 nil if Gnus is running. Then calling `phw-activate' or `phw-minor-mode' will
 only start PHW if Gnus is not already running."
-  :group 'phw-general
+  :group 'phw-hook
   :type 'hook)
 
 
@@ -367,13 +213,13 @@ only start PHW if Gnus is not already running."
 These hooks run at the real end of the activating process, means after the
 layout has been drawn!. If you need hooks which are run direct before the
 layout-drawing look at `phw-activate-before-layout-draw-hook'."
-  :group 'phw-general
+  :group 'phw-hook
   :type 'hook)
 
 (defcustom phw-deactivate-hook nil
   "*Hook run at the end of deactivating PHW by `phw-deactivate'.
 These hooks run before the phw-layout is cleared!"
-  :group 'phw-general
+  :group 'phw-hook
   :type 'hook)
 
 (defcustom phw-before-deactivate-hook nil
@@ -381,7 +227,7 @@ These hooks run before the phw-layout is cleared!"
 These hooks run before any other tasks of the deactivating process are
 performed. If any of these hooks returns nil then PHW will not be deactivated!
 See also `phw-before-activate-hook'."
-  :group 'phw-general
+  :group 'phw-hook
   :type 'hook)
 
 
@@ -415,516 +261,6 @@ See also `phw-before-activate-hook'."
       (phw-error "Killing an special PHW-buffer is not possible!"))))
 
 
-(defun phw-window-sync ()
-  "Synchronizes all special PHW-buffers with current buffer.
-Depending on the contents of current buffer this command performs different
-synchronizing tasks but only if PHW is active and point stays in an
-edit-window.
-
-- If current buffer is a file-buffer \(or an indirect-buffer with a
-  file-buffer as base-buffer) then all special PHW-buffers are
-  synchronized with current buffer.
-
-- If current buffer is a dired-buffer then the directory- and
-  the sources-tree-buffer are synchronized if visible
-
-In addition to this all the synchronizing hooks \(e.g.
-`phw-basic-buffer-sync-hook') run if the related phw-buffers are visible in an
-phw-window."
-  (interactive)
-  ;; TODO: Klaus Berndl <klaus.berndl@sdm.de>: XXXXXXXXX remove the args!!!
-  (phw-layout-window-sync))
-
-(defun phw-customize ()
-  "Open a customize-buffer for all customize-groups of PHW."
-  (interactive)
-  (phw-select-edit-window)
-  (customize-group "phw"))
-
-(defun phw-customize-most-important ()
-  "Open a customize-buffer for the most important options of PHW."
-  (interactive)
-  (phw-select-edit-window)
-  (customize-group "phw-most-important"))
-
-
-;;====================================================
-;; PHW minor mode: Create buffers & menus & maps
-;;====================================================
-
-(defun phw-menu-item (item)
-  "Build an XEmacs compatible menu item from vector ITEM.
-That is remove the unsupported :help stuff."
-  (if phw-running-xemacs
-      (let ((n (length item))
-            (i 0)
-            slot l)
-        (while (< i n)
-          (setq slot (aref item i))
-          (if (and (keywordp slot)
-                   (eq slot :help))
-              (setq i (1+ i))
-            (setq l (cons slot l)))
-          (setq i (1+ i)))
-        (apply #'vector (nreverse l)))
-    item))
-
-(defvar phw-menu-name "PHW")
-(defvar phw-menu-bar
-  (list
-   phw-menu-name
-   (phw-menu-item
-    [ "Select PHW frame"
-      phw-select-phw-frame
-      :active (and phw-minor-mode
-                   (not (equal (selected-frame) phw-frame)))
-      :help "Select the PHW-frame."
-      ])
-   (phw-menu-item
-    [ "Synchronize PHW windows"
-      (phw-window-sync)
-      :active (and (equal (selected-frame) phw-frame)
-                   (phw-point-in-edit-window-number))
-      :help "Synchronize the PHW windows with the current edit-window."
-      ])
-   (phw-menu-item
-    [ "Update directories buffer"
-      phw-update-directories-buffer
-      :active (equal (selected-frame) phw-frame)
-      :help "Updates the directories buffer with current disk-state"
-      ])
-   (phw-menu-item
-    [ "Add all buffers to history"
-      phw-add-all-buffers-to-history
-      :active (and (equal (selected-frame) phw-frame)
-                   (phw-window-live-p phw-history-buffer-name))
-      :help "Add all current file-buffers to history"
-      ])
-   "-"
-   (phw-menu-item
-    [ "Rebuild methods buffer"
-      phw-rebuild-methods-buffer
-      :active (equal (selected-frame) phw-frame)
-      :help "Rebuild the methods buffer completely"
-      ])
-   (phw-menu-item
-    [ "Expand methods buffer"
-      phw-expand-methods-nodes
-      :active (equal (selected-frame) phw-frame)
-      :help "Expand all nodes of a certain indent-level"
-      ])
-   (phw-menu-item
-    [ "Toggle auto. expanding of the method buffer"
-      phw-toggle-auto-expand-tag-tree
-      :active (equal (selected-frame) phw-frame)
-      :help "Toggle auto. expanding of the method buffer"
-      ])
-   "-"
-   (phw-menu-item
-    [ "Change layout"
-      phw-change-layout
-      :active (equal (selected-frame) phw-frame)
-      :help "Change the layout."
-      ])
-   (phw-menu-item
-    [ "Redraw layout"
-      phw-redraw-layout
-      :active (equal (selected-frame) phw-frame)
-      :help "Redraw the current layout."
-      ])
-   (phw-menu-item
-    [ "Toggle layout"
-      phw-toggle-layout
-      :active (and (equal (selected-frame) phw-frame)
-                   (> (length phw-toggle-layout-sequence) 1))
-      :help "Toggle between several layouts"
-      ])
-   (phw-menu-item
-    [ "Toggle visibility of PHW windows"
-      phw-toggle-phw-windows
-      :active (equal (selected-frame) phw-frame)
-      :help "Toggle the visibility of all PHW windows."
-      ])
-   (list
-    "Layout administration"
-    (phw-menu-item
-     [ "Store current window-sizes"
-       phw-store-window-sizes
-       :active (equal (selected-frame) phw-frame)
-       :help "Store current sizes of the phw-windows in current layout."
-       ])
-    (phw-menu-item
-     [ "Restore sizes of the phw-windows"
-       phw-restore-window-sizes
-       :active (equal (selected-frame) phw-frame)
-       :help "Restore the sizes of the phw-windows in current layout."
-       ])
-    (phw-menu-item
-     [ "Restore default-sizes of the phw-windows"
-       phw-restore-default-window-sizes
-       :active (equal (selected-frame) phw-frame)
-       :help "Restore the default-sizes of the phw-windows in current layout."
-       ])
-    "-"
-    (phw-menu-item
-     [ "Create new layout"
-       phw-create-new-layout
-       :active (equal (selected-frame) phw-frame)
-       :help "Create a new PHW-layout."
-       ])
-    (phw-menu-item
-     [ "Delete new layout"
-       phw-delete-new-layout
-       :active (equal (selected-frame) phw-frame)
-       :help "Delete an user-created PHW-layout."
-       ])
-    "-"
-    (phw-menu-item
-     [ "Show help for a layout"
-       phw-show-layout-help
-       :active t
-       :help "Show the documentation for a layout."
-       ]))
-   "-"
-   (phw-menu-item
-    [ "Toggle compile window"
-      phw-toggle-compile-window
-      :active (equal (selected-frame) phw-frame)
-      :help "Toggle visibility of compile window."
-      ])
-   (phw-menu-item
-    [ "Toggle enlarged compile window"
-      phw-toggle-compile-window-height
-      :active (and (equal (selected-frame) phw-frame)
-                   phw-compile-window
-                   (phw-compile-window-live-p))
-      :help "Toggle enlarged compile window."
-      ])
-   "-"
-   (list
-    "Navigate"
-    (phw-menu-item
-     ["Previous \(back)"
-      phw-nav-goto-previous
-      :active t
-      :help "Go to the previous navigation point"
-      ])
-    (phw-menu-item
-     ["Next \(forward)"
-      phw-nav-goto-next
-      :active t
-      :help "Go to the next navigation point"
-      ]))
-   (list
-    "Goto window"
-    (phw-menu-item
-     ["Last selected edit-window"
-      phw-goto-window-edit-last
-      :active t
-      :help "Go to the last selected edit-window"
-      ])
-    (phw-menu-item
-     ["Edit-window 1"
-      phw-goto-window-edit1
-      :active t
-      :help "Go to the first edit-window"
-      ])
-    (phw-menu-item
-     ["Edit-window 2"
-      phw-goto-window-edit2
-      :active (phw-edit-window-splitted)
-      :help "Go to the second edit-window \(if splitted\)"
-      ])
-    (phw-menu-item
-     ["Directories"
-      phw-goto-window-directories
-      :active (phw-buffer-is-phw-buffer-of-current-layout-p phw-directories-buffer-name)
-      :help "Go to the directories window"
-      ])
-    (phw-menu-item
-     ["Sources"
-      phw-goto-window-sources
-      :active (phw-buffer-is-phw-buffer-of-current-layout-p phw-sources-buffer-name)
-      :help "Go to the sources window"
-      ])
-    (phw-menu-item
-     ["Methods and Variables"
-      phw-goto-window-methods
-      :active (phw-buffer-is-phw-buffer-of-current-layout-p phw-methods-buffer-name)
-      :help "Go to the methods/variables window"
-      ])
-    (phw-menu-item
-     ["History"
-      phw-goto-window-history
-      :active (phw-buffer-is-phw-buffer-of-current-layout-p phw-history-buffer-name)
-      :help "Go to the history window"
-      ])
-    (phw-menu-item
-     ["Analyse"
-      phw-goto-window-analyse
-      :active (phw-buffer-is-phw-buffer-of-current-layout-p phw-analyse-buffer-name)
-      :help "Go to the analyse window"
-      ])
-    (phw-menu-item
-     ["Speedbar"
-      phw-goto-window-speedbar
-      :active (and phw-use-speedbar-instead-native-tree-buffer
-                   (phw-buffer-is-phw-buffer-of-current-layout-p phw-speedbar-buffer-name))
-      :help "Go to the integrated speedbar window"
-      ])
-    (phw-menu-item
-     ["Compilation"
-      phw-goto-window-compilation
-      :active (equal 'visible (phw-compile-window-state))
-      :help "Go to the history window"
-      ])
-    )
-   (list
-    "Display window maximized"
-    (phw-menu-item
-     ["Directories"
-      phw-maximize-window-directories
-      :active (phw-buffer-is-phw-buffer-of-current-layout-p phw-directories-buffer-name)
-      :help "Maximize the directories window - even if currently not visible"
-      ])
-    (phw-menu-item
-     ["Sources"
-      phw-maximize-window-sources
-      :active (phw-buffer-is-phw-buffer-of-current-layout-p phw-sources-buffer-name)
-      :help "Maximize the sources window - even if currently not visible"
-      ])
-    (phw-menu-item
-     ["Methods and Variables"
-      phw-maximize-window-methods
-      :active (phw-buffer-is-phw-buffer-of-current-layout-p phw-methods-buffer-name)
-      :help "Maximize the methods/variables window - even if currently not visible"
-      ])
-    (phw-menu-item
-     ["History"
-      phw-maximize-window-history
-      :active (phw-buffer-is-phw-buffer-of-current-layout-p phw-history-buffer-name)
-      :help "Maximize the history window - even if currently not visible"
-      ])
-    (phw-menu-item
-     ["Analyse"
-      phw-maximize-window-analyse
-      :active (phw-buffer-is-phw-buffer-of-current-layout-p phw-analyse-buffer-name)
-      :help "Maximize the analyse window - even if currently not visible"
-      ])
-    (phw-menu-item
-     ["Speedbar"
-      phw-maximize-window-speedbar
-      :active (and phw-use-speedbar-instead-native-tree-buffer
-                   (phw-buffer-is-phw-buffer-of-current-layout-p phw-speedbar-buffer-name))
-      :help "Maximize the integrated speedbar window - even if not visible"
-      ])
-    )
-   "-"
-   (list
-    "Preferences"
-    (phw-menu-item
-     ["Most important..."
-      (customize-group "phw-most-important")
-      :active t
-      :help "Customize the most important options"
-      ])
-    (phw-menu-item
-     ["All..."
-      (phw-customize)
-      :active t
-      :help "Display all available option-groups..."
-      ])
-    "-"
-    (phw-menu-item
-     ["General..."
-      (customize-group "phw-general")
-      :active t
-      :help "Customize general PHW options"
-      ])
-    (phw-menu-item
-     ["Directories..."
-      (customize-group "phw-directories")
-      :active t
-      :help "Customize PHW directories"
-      ])
-    (phw-menu-item
-     ["Sources..."
-      (customize-group "phw-sources")
-      :active t
-      :help "Customize PHW sources"
-      ])
-    (phw-menu-item
-     ["Methods..."
-      (customize-group "phw-methods")
-      :active t
-      :help "Customize PHW method display"
-      ])
-    (phw-menu-item
-     ["History..."
-      (customize-group "phw-history")
-      :active t
-      :help "Customize PHW history"
-      ])
-    (phw-menu-item
-     ["Analyse..."
-      (customize-group "phw-analyse")
-      :active t
-      :help "Customize PHW analyse ingeractor"
-      ])
-    (phw-menu-item
-     ["Version control..."
-      (customize-group "phw-version-control")
-      :active t
-      :help "Customize the version-control-support"
-      ])
-    (phw-menu-item
-     ["Layout..."
-      (customize-group "phw-layout")
-      :active t
-      :help "Customize PHW layout"
-      ])
-    (phw-menu-item
-     ["Tree-buffer style and handling..."
-      (customize-group "phw-tree-buffer")
-      :active t
-      :help "Customize the tree-buffers of PHW"
-      ])
-    (phw-menu-item
-     ["Face options..."
-      (customize-group "phw-face-options")
-      :active t
-      :help "Customize PHW faces"
-      ])
-    (phw-menu-item
-     ["Help options..."
-      (customize-group "phw-help")
-      :active t
-      :help "Customize options for the online help of PHW"
-      ])
-    (phw-menu-item
-     ["PHW/eshell options..."
-      (customize-group "phw-eshell")
-      :active t
-      :help "Customize options for the eshell integration of PHW"
-      ])
-    (phw-menu-item
-     ["Supporting non-semantic-sources..."
-      (customize-group "phw-non-semantic")
-      :active t
-      :help "Customize options for parsing non-semantic-sources"
-      ])
-    (phw-menu-item
-     ["Supporting window-managers..."
-      (customize-group "phw-winman-support")
-      :active t
-      :help "Customize options for the window-manager-support"
-      ])
-    )
-   (list
-    "Upgrade PHW"
-    (phw-menu-item
-     [ "Upgrade PHW-options to current PHW-version"
-       phw-upgrade-options
-       :active (equal (selected-frame) phw-frame)
-       :help "Try to upgrade PHW-options to current PHW-version if necessary."
-       ])
-    )
-   (list
-    "Help"
-    (phw-menu-item
-     [ "Show Online Help"
-       phw-show-help
-       :active t
-       :help "Show the online help of PHW."
-       ])
-    (phw-menu-item
-     [ "PHW NEWS"
-       (phw-display-news-for-upgrade t)
-       :active t
-       :help "Displays the NEWS-file of PHW."
-       ])
-    (phw-menu-item
-     [ "List of most important options"
-       (let ((phw-show-help-format 'info))
-         (phw-show-help)
-         (Info-goto-node "Most important options"))
-       :active t
-       :help "Displays a a list of options which you should know."
-       ])
-    (phw-menu-item
-     [ "List of all options"
-       (let ((phw-show-help-format 'info))
-         (phw-show-help)
-         (Info-goto-node "Option Index"))
-       :active t
-       :help "Displays an index of all user-options in the online-help."
-       ])
-    (phw-menu-item
-     [ "List of all commands"
-       (let ((phw-show-help-format 'info))
-         (phw-show-help)
-         (Info-goto-node "Command Index"))
-       :active t
-       :help "Displays an index of all commands in the online-help."
-       ])
-    (phw-menu-item
-     [ "FAQ"
-       (let ((phw-show-help-format 'info))
-         (phw-show-help)
-         (Info-goto-node "FAQ"))
-       :active t
-       :help "Show the FAQ of PHW."
-       ])
-    (phw-menu-item
-     [ "Conflicts with other packages"
-       (let ((phw-show-help-format 'info))
-         (phw-show-help)
-         (Info-goto-node "Conflicts and bugs"))
-       :active t
-       :help "What to do for conflicts with other packages."
-       ])
-    (phw-menu-item
-     [ "Submit problem report"
-       phw-submit-problem-report
-       :active t
-       :help "Submit a problem report to the PHW mailing list."
-       ])
-    (phw-menu-item
-     [ "PHW Debug mode"
-       (setq phw-debug-mode (not phw-debug-mode))
-       :active t
-       :style toggle
-       :selected phw-debug-mode
-       :help "Print debug-informations about parsing files in the message buffer."
-       ])
-    (phw-menu-item
-     [ "PHW Layout Debug mode"
-       (setq phw-layout-debug-mode (not phw-layout-debug-mode))
-       :active t
-       :style toggle
-       :selected phw-layout-debug-mode
-       :help "Print debug-informations about window-operations in the message buffer."
-       ])
-    "-"
-    (phw-menu-item
-     ["Help preferences..."
-      (customize-group "phw-help")
-      :active t
-      :help "Customize options for the online help of PHW"
-      ])
-    "-"
-    (concat "PHW " phw-version)
-    )
-   "-"
-   (phw-menu-item
-    [ "Deactivate PHW"
-      phw-deactivate
-      :active t
-      :help "Deactivate PHW."
-      ])
-   )
-  "Menu for PHW minor mode.")
-
 (defun phw-add-to-minor-modes ()
   "Does all necessary to add PHW as a minor mode with current values of
 `phw-mode-map' and `phw-minor-mode-text'."
@@ -940,52 +276,61 @@ That is remove the unsupported :help stuff."
 (defvar phw-mode-map nil
   "Internal key-map for PHW minor mode.")
 
+(defcustom phw-common-prefix "C-."
+  ""
+  :group 'phw
+  :type 'key-sequence)
+
 (defcustom phw-key-map
-  '("C-c ." . ((t "fh" phw-history-filter)
-               (t "fs" phw-sources-filter)
-               (t "fm" phw-methods-filter)
-               (t "fr" phw-methods-filter-regexp)
-               (t "ft" phw-methods-filter-tagclass)
-               (t "fc" phw-methods-filter-current-type)
-               (t "fp" phw-methods-filter-protection)
-               (t "fn" phw-methods-filter-nofilter)
-               (t "fl" phw-methods-filter-delete-last)
-               (t "ff" phw-methods-filter-function)
-               (t "p" phw-nav-goto-previous)
-               (t "n" phw-nav-goto-next)
-               (t "lc" phw-change-layout)
-               (t "lr" phw-redraw-layout)
-               (t "lw" phw-toggle-phw-windows)
-               (t "lt" phw-toggle-layout)
-               (t "s" phw-window-sync)
-               (t "r" phw-rebuild-methods-buffer)
-               (t "a" phw-toggle-auto-expand-tag-tree)
-               (t "x" phw-expand-methods-nodes)
-               (t "h" phw-show-help)
-               (t "gl" phw-goto-window-edit-last)
-               (t "g1" phw-goto-window-edit1)
-               (t "g2" phw-goto-window-edit2)
-               (t "gc" phw-goto-window-compilation)
-               (t "gd" phw-goto-window-directories)
-               (t "gs" phw-goto-window-sources)
-               (t "gm" phw-goto-window-methods)
-               (t "gh" phw-goto-window-history)
-               (t "ga" phw-goto-window-analyse)
-               (t "gb" phw-goto-window-speedbar)
-               (t "md" phw-maximize-window-directories)
-               (t "ms" phw-maximize-window-sources)
-               (t "mm" phw-maximize-window-methods)
-               (t "mh" phw-maximize-window-history)
-               (t "ma" phw-maximize-window-analyse)
-               (t "mb" phw-maximize-window-speedbar)
-               (t "e" eshell)
-               (t "o" phw-toggle-scroll-other-window-scrolls-compile)
-               (t "\\" phw-toggle-compile-window)
-               (t "/" phw-toggle-compile-window-height)
-               (t "," phw-cycle-maximized-phw-buffers)
-               (t "." phw-cycle-through-compilation-buffers)))
+  '(phw-common-prefix
+    . ((t "n"  phw-window-display-next)
+       (t "p"  phw-window-display-previous)
+
+       (t "."  phw-dwim-goto-edit-window-or-phw)
+       (t "f"  phw-goto-edit-window-forward)
+       (t "b"  phw-goto-edit-window-backward)
+       (t "1"  phw-goto-edit-window-1-or-display-next)
+       (t "2"  phw-goto-edit-window-2-or-display-next)
+       (t "3"  phw-goto-edit-window-3-or-display-next)
+       (t "4"  phw-goto-edit-window-4-or-display-next)
+       (t "5"  phw-goto-edit-window-5-or-display-next)
+       (t "6"  phw-goto-edit-window-6-or-display-next)
+       (t "7"  phw-goto-edit-window-7-or-display-next)
+       (t "8"  phw-goto-edit-window-8-or-display-next)
+       (t "9"  phw-goto-edit-window-9-or-display-next)
+
+       (t "m." phw-dwim-move-buffer-to-edit-window-or-phw)
+       (t "mf" phw-move-buffer-to-edit-window-forward)
+       (t "mb" phw-move-buffer-to-edit-window-backward)
+       (t "m1" phw-move-buffer-to-edit-window-1)
+       (t "m2" phw-move-buffer-to-edit-window-2)
+       (t "m3" phw-move-buffer-to-edit-window-3)
+       (t "m4" phw-move-buffer-to-edit-window-4)
+       (t "m5" phw-move-buffer-to-edit-window-5)
+       (t "m6" phw-move-buffer-to-edit-window-6)
+       (t "m7" phw-move-buffer-to-edit-window-7)
+       (t "m8" phw-move-buffer-to-edit-window-8)
+       (t "m9" phw-move-buffer-to-edit-window-9)
+
+       (t "x." phw-dwim-exchange-buffers-edit-window-and-phw)
+       (t "xf" phw-exchange-buffers-edit-window-forward)
+       (t "xb" phw-exchange-buffers-edit-window-backward)
+       (t "x1" phw-exchange-buffers-edit-window-1)
+       (t "x2" phw-exchange-buffers-edit-window-2)
+       (t "x3" phw-exchange-buffers-edit-window-3)
+       (t "x4" phw-exchange-buffers-edit-window-4)
+       (t "x5" phw-exchange-buffers-edit-window-5)
+       (t "x6" phw-exchange-buffers-edit-window-6)
+       (t "x7" phw-exchange-buffers-edit-window-7)
+       (t "x8" phw-exchange-buffers-edit-window-8)
+       (t "x9" phw-exchange-buffers-edit-window-9)
+
+       ))
 
   "*Specifies all key-bindings for the PHW minor-mode key-map.
+
+You MUST change this option via customize to take effect!
+
 The value is a cons-cell where the car is a common-prefix key for all the
 key-bindings. The cdr is a list of key-bindings each of them a list again. A
 key-binding has the following form:
@@ -997,13 +342,8 @@ key-binding has the following form:
 <keysequence>: If the common prefixkey is used then the final key-binding is the
                concatenation of the common-prefixkey \(see above) and this
                keysequence.
-<function>: The function to bind to the key. This can also be a
-            lambda-expression .
-
-It is highly recommended to use one of the standard keys C-c or C-x as first key
-of your common-prefixkey!
-
-You MUST change this option via customize to take effect!
+<function>: The function to bind to the key.  This can also be a
+            lambda-expression.
 
 All keysequences must be inserted as a string and must follow the syntax needed
 by `read-kbd-macro' or `kbd'. This means you can insert the key in the same
@@ -1036,14 +376,13 @@ macro must be written explicitly, as in \"C-c SPC\".
     M--123 = M-- M-1 M-2 M-3.
 
   * The `^' notation for control characters also works:  ^M = C-m."
-  :group 'phw-general
-  :group 'phw-most-important
-  :type '(cons (choice :tag "Common prefix-key"
-                       (const :tag "No common prefix-key" :value nil)
-                       (string :tag "Prefix-key" :value "C-c ."))
+  :group 'phw
+  :type '(cons (choice :tag "Common prefix"
+                       (const :tag "No common prefix" :value nil)
+                       (string :tag "Common prefix" :value phw-prefix))
                (repeat :tag "Key-bindings"
                        (list :tag "Key-definition"
-                             (boolean :tag "o Use common prefix-key" :value t)
+                             (boolean :tag "o Use common prefix" :value t)
                              (string :tag "o Key")
                              (function :tag "o Function or lambda-expression"
                                        :value nil))))
@@ -1052,14 +391,12 @@ macro must be written explicitly, as in \"C-c SPC\".
                    ;; make a mode-map and save it
                    (setq phw-mode-map
                          (let ((km (make-sparse-keymap))
-                               (val-list (phw-copy-list (cdr value)))
+                               (val-list (cl-copy-list (cdr value)))
                                keq-string)
                            (dolist (elem val-list)
-                             (setq key-string (concat (if (nth 0 elem) (car value))
+                             (setq key-string (concat (if (nth 0 elem) (eval (car value)))
                                                       " " (nth 1 elem)))
                              (define-key km (read-kbd-macro key-string) (nth 2 elem)))
-                           (easy-menu-define phw-minor-menu km
-                             "PHW Minor Mode Menu" phw-menu-bar)
                            km))
                    ;; add the minor-mode and and the minor-mode-map to the
                    ;; alists if not already contained. In this case just
@@ -1164,10 +501,6 @@ value of VAR is as before storing a NEW-VALUE for variable-symbol VAR."
                    (boundp 'progress-feedback-use-echo-area))
           (phw-modify-emacs-variable 'progress-feedback-use-echo-area 'store t))
 
-        ;; checking if there are cedet or semantic-load problems
-        (phw-check-cedet-load)
-        (phw-check-semantic-load)
-
         ;; checking the requirements
         (phw-check-requirements)
 
@@ -1240,13 +573,6 @@ value of VAR is as before storing a NEW-VALUE for variable-symbol VAR."
               ;; prepares PHW to run eshell right - if loaded and activated
               (phw-eshell-activate-integration)
 
-              ;; we need some hooks
-              (add-hook (phw--semantic-after-partial-cache-change-hook)
-                        'phw-update-after-partial-reparse t)
-              (add-hook (phw--semantic-after-toplevel-cache-change-hook)
-                        'phw-rebuild-methods-buffer-with-tagcache t)
-;;               (add-hook (phw--semantic--before-fetch-tags-hook)
-;;                         'phw-prevent-from-parsing-if-exceeding-threshold)
               (phw-activate-phw-autocontrol-function phw-highlight-tag-with-point-delay
                                                      'phw-tag-sync)
               (phw-activate-phw-autocontrol-function phw-basic-buffer-sync-delay
@@ -1285,10 +611,6 @@ value of VAR is as before storing a NEW-VALUE for variable-symbol VAR."
               ;; enabling the VC-support
               (phw-vc-enable-internals 1)
 
-              (add-hook (if phw-running-xemacs
-                            'activate-menubar-hook
-                          'menu-bar-update-hook)
-                        'phw-compilation-update-menu)
               )
           (error
            ;;          (backtrace)
@@ -1464,13 +786,6 @@ value of VAR is as before storing a NEW-VALUE for variable-symbol VAR."
       (tree-buffer-activate-follow-mouse)
       (tree-buffer-deactivate-follow-mouse)
 
-      ;; remove the hooks
-      (remove-hook (phw--semantic-after-partial-cache-change-hook)
-                   'phw-update-after-partial-reparse)
-      (remove-hook (phw--semantic-after-toplevel-cache-change-hook)
-                   'phw-rebuild-methods-buffer-with-tagcache)
-;;       (remove-hook (phw--semantic--before-fetch-tags-hook)
-;;                 'phw-prevent-from-parsing-if-exceeding-threshold)
       (phw-stop-all-autocontrol/sync-functions)
       (remove-hook 'after-save-hook 'phw-update-methods-after-saving)
       (remove-hook 'kill-buffer-hook 'phw-kill-buffer-hook)
@@ -1482,11 +797,6 @@ value of VAR is as before storing a NEW-VALUE for variable-symbol VAR."
 
       ;; disabling the VC-support
       (phw-vc-enable-internals -1)
-
-      (remove-hook (if phw-running-xemacs
-                       'activate-menubar-hook
-                     'menu-bar-update-hook)
-                   'phw-compilation-update-menu)
 
       ;; run any personal hooks
       (unless run-no-hooks
@@ -1649,206 +959,6 @@ exist."
     (phw-activate)))
 
 (add-hook 'emacs-startup-hook 'phw-auto-activate-hook)
-
-(silentcomp-defvar menu-bar-tools-menu)
-(condition-case oops
-    (progn
-      (require 'easymenu)
-      (easy-menu-add-item (if phw-running-xemacs nil menu-bar-tools-menu)
-                          (if phw-running-xemacs '("tools") nil)
-                          (phw-menu-item
-                           [ "Start Code Browser (PHW)"
-                             phw-activate
-                             :active t
-                             :help "Start the Emacs Code Browser."
-                             ]))
-      )
-  (error
-   (phw-warning "Not critical error during adding menu-entry to Tools-menu (error-type: %S, error-data: %S)"
-                (car oops) (cdr oops))))
-
-
-;; some goodies for editing the phw-elisp-code
-
-;; parsing of our phw-macros
-
-(eval-after-load (if (locate-library "semantic/bovine/el")
-                     "el"
-                   "semantic-el")
-  (condition-case oops
-      (when (fboundp 'semantic-elisp-setup-form-parser)
-        ;; defphw-multicache
-        (semantic-elisp-reuse-form-parser defvar defphw-multicache)
-        ;; defphw-advice-set
-        (semantic-elisp-reuse-form-parser defvar defphw-advice-set)
-        ;; defphw-stealthy and tree-buffer-defpopup-command
-        (semantic-elisp-setup-form-parser
-            (lambda (read-lobject start end)
-              (semantic-tag-new-function
-               (symbol-name (nth 1 read-lobject)) nil nil
-               :user-visible-flag nil
-               :documentation (semantic-elisp-do-doc (nth 2 read-lobject))))
-          defphw-stealthy
-          tree-buffer-defpopup-command)
-        ;; defphw-tree-buffer-creator
-        (semantic-elisp-setup-form-parser
-            (lambda (read-lobject start end)
-              (semantic-tag-new-function
-               (symbol-name (nth 1 read-lobject)) nil nil
-               :user-visible-flag nil
-               :documentation (semantic-elisp-do-doc (nth 3 read-lobject))))
-          defphw-tree-buffer-creator)
-        ;; defphw-window-dedicator-to-phw-buffer
-        (semantic-elisp-setup-form-parser
-            (lambda (read-lobject start end)
-              (semantic-tag-new-function
-               (symbol-name (nth 1 read-lobject)) nil nil
-               :user-visible-flag nil
-               :documentation (semantic-elisp-do-doc (nth 4 read-lobject))))
-          defphw-window-dedicator-to-phw-buffer)
-        ;; defphw-advice
-        (semantic-elisp-setup-form-parser
-            (lambda (read-lobject start end)
-              (semantic-tag-new-function
-               (symbol-name (nth 1 read-lobject)) nil
-               (semantic-elisp-desymbolify
-                (list '**phw-advice: (nth 2 read-lobject) (nth 3 read-lobject)))
-               :user-visible-flag nil
-               :documentation (semantic-elisp-do-doc (nth 4 read-lobject))))
-          defphw-advice)
-        ;; defphw-tree-buffer-callback
-        (semantic-elisp-setup-form-parser
-            (lambda (read-lobject start end)
-              (semantic-tag-new-function
-               (symbol-name (nth 1 read-lobject)) nil
-               (semantic-elisp-desymbolify
-                (append '(node phw-button edit-window-nr shift-mode meta-mode)
-                        (nth 4 read-lobject)))
-               :user-visible-flag nil
-               :documentation (semantic-elisp-do-doc (nth 5 read-lobject))))
-          defphw-tree-buffer-callback)
-        ;; defphw-autocontrol/sync-function
-        (semantic-elisp-setup-form-parser
-            (lambda (read-lobject start end)
-              (semantic-tag-new-function
-               (symbol-name (nth 1 read-lobject)) nil
-               (semantic-elisp-desymbolify
-                (list '**autocontrol/sync_for_buffer: (nth 2 read-lobject)))
-               :user-visible-flag nil
-               :documentation (semantic-elisp-do-doc (nth 5 read-lobject))))
-          defphw-autocontrol/sync-function)
-        ;; phw-layout-define
-        (semantic-elisp-setup-form-parser
-            (lambda (read-lobject start end)
-              (semantic-tag-new-function
-               (nth 1 read-lobject) nil
-               (semantic-elisp-desymbolify (list (nth 2 read-lobject)))
-               :user-visible-flag nil
-               :documentation (semantic-elisp-do-doc (nth 3 read-lobject))))
-          phw-layout-define)
-        ;; when-phw-running-... macros
-        (semantic-elisp-reuse-form-parser eval-and-compile
-                                          when-phw-running-xemacs
-                                          when-phw-running-emacs-22
-                                          when-phw-running-emacs-23
-                                          when-phw-running-emacs)
-        )
-    (error
-     (phw-warning "Not critical error during supporting parsing the phw-macros: (error-type: %S, error-data: %S)"
-                  (car oops) (cdr oops)))))
-
-;; highlighting of some phw-keywords
-(condition-case oops
-    (progn
-      (defconst phw-font-lock-keywords
-        (eval-when-compile
-          (let* (
-                 ;; Function declarations and exec-with-macros
-                 (variable-defs '(
-                                  "defphw-multicache"
-                                  "defphw-advice-set"
-                                  ))
-                 (function-defs '(
-                                  "defphw-stealthy"
-                                  "defphw-tree-buffer-creator"
-                                  "defphw-window-dedicator-to-phw-buffer"
-                                  "defphw-advice"
-                                  "defphw-autocontrol/sync-function"
-                                  "defphw-tree-buffer-callback"
-                                  ))
-                 (plain-keywords '(
-                                   "phw-exec-in-window"
-                                   "phw-do-with-unfixed-phw-buffers"
-                                   "phw-do-with-fixed-phw-buffers"
-                                   "phw-with-original-adviced-function-set"
-                                   "phw-with-original-permanent-layout-functions"
-                                   "phw-with-dedicated-window"
-                                   "phw-with-original-basic-functions"
-                                   "phw-with-phw-advice"
-                                   "phw-with-readonly-buffer"
-                                   "phw-do-if-buffer-visible-in-phw-frame"
-                                   "phw-when-point-in-edit-window-phw-windows-visible"
-                                   "phw-layout-define"
-                                   "when-phw-running-xemacs"
-                                   "when-phw-running-emacs"
-                                   "when-phw-running-emacs-22"
-                                   "when-phw-running-emacs-23"
-                                   "phw-exit-on-input"
-                                   ))
-                 (v-regexp (regexp-opt variable-defs t))
-                 (f-regexp (regexp-opt function-defs t))
-                 (k-regexp (regexp-opt plain-keywords t))
-                 ;; Regexp depths
-                 (v-depth (regexp-opt-depth v-regexp))
-                 (f-depth (regexp-opt-depth f-regexp))
-                 (k-depth (regexp-opt-depth k-regexp))
-                 (full (concat
-                        ;; Declarative things: the whole parenthesis expr has always
-                        ;; number 1 ==> The paren-expression number for a keyword
-                        ;; contained in (append variable-defs function-defs
-                        ;; plain-keywords) is always 1
-                        "(\\(" v-regexp "\\|" f-regexp "\\|" k-regexp "\\)"
-                        ;; Whitespaces & name: The parenthesis expr for name has
-                        ;; always the number
-                        ;; (+ 1        -- the whole paren-expr for the declarative
-                        ;;                things
-                        ;;    v-depth  -- all paren-expressions of the variable-defs
-                        ;;    f-depth  -- all paren-expressions of the function-defs
-                        ;;    k-depth  -- all paren-expressions of the plain keywords
-                        ;;    1        -- The \\(\\sw+\\)?: This is the name in case
-                        ;;                of a variable- or function-def
-                        ;;  )
-                        ;; So variable, functions and keywords have the following
-                        ;; numbers:
-                        ;; - variable-match: Always 2 (The whole surrounding
-                        ;;   paren-expr + the surrounding paren-expr defined with
-                        ;;   regexp-opt for the variable-defs
-                        ;; - function-match: 1 (for the whole surrounding
-                        ;;   paren-expr) + v-depth (to jump over the paren-expr of
-                        ;;   the variable-defs + 1 (the surrounding paren-expr
-                        ;;   defined with regexp-opt for the function-defs
-                        "\\>[ \t]*\\(\\sw+\\)?"
-                        ))
-                 )
-            `((,full
-               (1 font-lock-keyword-face)
-               (,(+ 1 v-depth f-depth k-depth 1) ;; see explanation above
-                (cond ((match-beginning 2) ;; see explanation above
-                       font-lock-variable-name-face)
-                      ((match-beginning ,(+ 1 v-depth 1)) ;; see explanation above
-                       font-lock-function-name-face)
-                      (t nil))
-                nil t)))
-            ))
-        "Highlighted phw keywords.")
-
-      (when (fboundp 'font-lock-add-keywords)
-        (font-lock-add-keywords 'emacs-lisp-mode
-                                phw-font-lock-keywords)
-        ))
-  (error
-   (phw-warning "Not critical error during supporting fontifying the phw-macros: (error-type: %S, error-data: %S)"
-                (car oops) (cdr oops))))
 
 
 ;; Klaus Berndl <klaus.berndl@sdm.de>: Cause of the magic autostart stuff of
