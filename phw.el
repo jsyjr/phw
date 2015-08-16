@@ -86,9 +86,6 @@
 
 ;;; Code:
 
-(eval-when-compile
-  (require 'silentcomp))
-
 ;; We need this libraries already here if we miss some requirements
 (require 'phw-util)
 
@@ -100,9 +97,6 @@
 (eval-when-compile
   ;; to avoid compiler grips
   (require 'cl))
-
-;; XEmacs
-(silentcomp-defun phw-redraw-modeline)
 
 ;;====================================================
 ;; Variables
@@ -973,6 +967,4 @@ exist."
 (phw-file-browser-initialize)
 (phw-method-browser-initialize)
 
-(silentcomp-provide 'phw)
-
-;;; phw, 2015.el ends here
+(provide 'phw)

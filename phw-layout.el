@@ -112,57 +112,9 @@
 
 ;;; Code:
 
-(eval-when-compile
-  (require 'silentcomp))
-
 (require 'phw-util)
-(require 'phw-common-browser)
 ;;(require 'phw-speedbar)
 (require 'phw-compilation)
-(require 'phw-create-layout)
-(require 'phw-navigate)
-
-;; XEmacs
-(silentcomp-defvar scrollbars-visible-p)
-(silentcomp-defun window-displayed-height)
-(silentcomp-defvar pre-display-buffer-function)
-(silentcomp-defvar split-width-threshold)
-(silentcomp-defvar split-width-threshold)
-(silentcomp-defun popup-menu-and-execute-in-window)
-(silentcomp-defvar modeline-map)
-(silentcomp-defun modeline-menu)
-;; for the display-buffer stuff of XEmacs
-(silentcomp-defun last-nonminibuf-frame)
-(silentcomp-defun check-argument-type)
-(silentcomp-defun buffer-dedicated-frame)
-(silentcomp-defun display-buffer-1)
-(silentcomp-defun frame-property)
-(silentcomp-defun window-leftmost-p)
-(silentcomp-defun window-rightmost-p)
-(silentcomp-defun window-parent)
-(silentcomp-defun window-previous-child)
-(silentcomp-defun window-next-child)
-(silentcomp-defun window-pixel-edges)
-(silentcomp-defun window-pixel-height)
-(silentcomp-defun record-buffer)
-(silentcomp-defun push-window-configuration)
-(silentcomp-defun set-frame-property)
-(silentcomp-defvar temp-buffer-shrink-to-fit)
-
-;; Emacs
-(silentcomp-defvar scroll-bar-mode)
-;; only Emacs 21 has this
-(silentcomp-defvar window-size-fixed)
-;;(silentcomp-defun fit-window-to-buffer)
-(silentcomp-defvar temp-buffer-resize-mode)
-(silentcomp-defun temp-buffer-resize-mode)
-(silentcomp-defun modify-frame-parameters)
-;; Emacs 21
-(silentcomp-defvar grep-window-height)
-
-(eval-when-compile
-  ;; to avoid compiler grips
-  (require 'cl))
 
 (defvar phw-layouts-reload-needed t)
 (defun phw-load-layouts ()
@@ -6064,7 +6016,7 @@ you have to quit with `C-g')."
                 (phw-select-edit-window))))))))
 
 
-(silentcomp-provide 'phw-layout)
+(provide 'phw-layout)
 
 ;;; phw-layout.el ends here
 

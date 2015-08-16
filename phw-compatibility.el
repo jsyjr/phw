@@ -38,10 +38,6 @@
 ;; This file is part of the PHW package which can be found at:
 ;; http://phw.sourceforge.net
 
-(eval-when-compile
-  (require 'silentcomp))
-
-
 (require 'phw-util)
 (require 'phw-common-browser)
 (require 'phw-layout)
@@ -213,9 +209,6 @@ BUFFER is displayed in an edit-window!"
 
 ;; ediff-stuff ---------------------------------------------------------------
 
-(silentcomp-defun ediff-cleanup-mess)
-(silentcomp-defvar ediff-quit-hook)
-
 (defvar phw-before-ediff-window-config nil)
 
 ;; We must not add this function to `ediff-before-setup-windows-hook' because
@@ -355,6 +348,6 @@ selected afterwards."
 ;; we disable the advices at load-time
 (phw-disable-advices 'phw-compatibility-advices t)
 
-(silentcomp-provide 'phw-compatibility)
+(provide 'phw-compatibility)
 
 ;;; phw-compatibility.el ends here

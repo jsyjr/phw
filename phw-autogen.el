@@ -1,6 +1,6 @@
 ;;; phw-autogen.el --- Auto load statement generator
 
-;; Copyright (C) 2000 - 2005 Jesper Nordenberg,
+;; Copyright (C) 2000-2015   Jesper Nordenberg,
 ;;                           Klaus Berndl,
 ;;                           Kevin A. Burton,
 ;;                           Free Software Foundation, Inc.
@@ -46,10 +46,6 @@
 (require 'autoload)
 
 (require 'phw-util)
-
-(eval-when-compile
-  (require 'silentcomp))
-
 
 (when (phw-noninteractive)
   ;; If the user is doing this non-interactively, we need to set up
@@ -155,6 +151,4 @@ does nothing."
           (save-buffer)
           (kill-buffer (current-buffer)))))))
 
-(silentcomp-provide 'phw-autogen)
-
-;;; phw, 2015, 2015-autogen.el ends here
+(provide 'phw-autogen)

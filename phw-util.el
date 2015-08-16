@@ -1,6 +1,6 @@
 ;;; phw-util.el --- utility functions for PHW
 
-;; Copyright (C) 2000 - 2005, 2015 Jesper Nordenberg,
+;; Copyright (C) 2000-2015   Jesper Nordenberg,
 ;;                           Klaus Berndl,
 ;;                           Kevin A. Burton,
 ;;                           Free Software Foundation, Inc.
@@ -40,58 +40,6 @@
 ;; history of the PHW-package see the file NEWS.
 
 ;;; Code:
-
-(eval-when-compile
-  (require 'silentcomp))
-
-(eval-when-compile (require 'cl))
-
-;;; ----- Silentcomp-Defs ----------------------------------
-
-;; XEmacs
-(silentcomp-defun symbol-value-in-buffer)
-(silentcomp-defun button-release-event-p)
-(silentcomp-defun button-press-event-p)
-(silentcomp-defun event-key)
-(silentcomp-defun frame-property)
-(silentcomp-defun point-at-bol)
-(silentcomp-defun point-at-eol)
-(silentcomp-defun frame-parameter)
-(silentcomp-defun line-beginning-position)
-(silentcomp-defun line-end-position)
-(silentcomp-defun window-pixel-edges)
-(silentcomp-defun noninteractive)
-;; Emacs
-(silentcomp-defun event-basic-type)
-(silentcomp-defun window-edges)
-(silentcomp-defun buffer-local-value)
-(silentcomp-defun posn-point)
-(silentcomp-defun posn-window)
-(silentcomp-defun event-start)
-(silentcomp-defun set-window-vscroll)
-;; XEmacs
-(silentcomp-defun make-dialog-box)
-(silentcomp-defun display-message)
-(silentcomp-defun clear-message)
-(silentcomp-defun make-event)
-;; Emacs
-(silentcomp-defvar message-log-max)
-(silentcomp-defvar message-truncate-lines)
-(silentcomp-defun x-popup-dialog)
-(silentcomp-defun display-images-p)
-(silentcomp-defvar tar-subfile-mode)
-(silentcomp-defvar archive-subfile-mode)
-(silentcomp-defun count-screen-lines)
-(silentcomp-defvar header-line-format)
-
-;; timer stuff for Xemacs
-(silentcomp-defun delete-itimer)
-(silentcomp-defun start-itimer)
-;; thing stuff for XEmacs
-(silentcomp-defun thing-boundaries)
-(silentcomp-defun thing-symbol)
-
-(silentcomp-defun custom-file)
 
 ;;; ----- Some constants -----------------------------------
 
@@ -2369,8 +2317,4 @@ cons-cell \('test-inner-loop . \"test\")"
 
 ;;; ----- Provide ------------------------------------------
 
-(silentcomp-provide 'phw-util)
-
-;;; Local Variables: ***
-;;; mode:outline-minor ***
-;;; End: ***
+(provide 'phw-util)

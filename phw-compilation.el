@@ -1,6 +1,6 @@
 ;;; phw-compilation.el --- code for buffers displayed in compile-window
 
-;; Copyright (C) 2000 - 2005 Jesper Nordenberg,
+;; Copyright (C) 2000-2015   Jesper Nordenberg,
 ;;                           Klaus Berndl,
 ;;                           Kevin A. Burton,
 ;;                           Free Software Foundation, Inc.
@@ -40,11 +40,6 @@
 
 
 ;;; Code:
-
-(eval-when-compile
-  (require 'silentcomp))
-
-(silentcomp-defun comint-check-proc)
 
 (require 'phw-util)
 
@@ -307,6 +302,4 @@ compilation buffers see `phw-compilation-buffer-p'."
       
 
 
-(silentcomp-provide 'phw-compilation)
-
-;;; phw, 2015, 2015-compilation.el ends here
+(provide 'phw-compilation)
