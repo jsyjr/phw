@@ -41,12 +41,13 @@ EBATCH=$(EMACS) -batch -no-site-file
 # 	    phw-symboldef.el phw-semantic.el phw-advice-test.el \
 # 	    phw-buffertab.el phw-multiframe.el phw-semantic-wrapper.el
 
-phw_LISP_EL=phw-util.el \
-            phw-layout.el phw-layout-defs.el phw.el \
-	    phw-compilation.el \
-	    silentcomp.el \
+phw_LISP_EL=phw.el \
 	    phw-autogen.el \
-	    phw-advice-test.el
+	    phw-compilation.el \
+	    phw-util.el \
+	    silentcomp.el \
+            phw-layout-defs.el \
+            phw-layout.el \
 
 phw_LISP_ELC=$(phw_LISP_EL:.el=.elc)
 
