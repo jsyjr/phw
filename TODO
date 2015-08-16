@@ -1,0 +1,2 @@
+- Prevent layout-engine from splitting windows when smaller than
+  window-min-height/width.

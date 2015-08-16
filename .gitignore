@@ -1,0 +1,11 @@
+*.elc
+*~
+/TAGS
+/html-help/
+/info-help/
+/phw-autoloads.el
+Makefile.conf
+
+*vc-log*
+
+phw-compile-script
