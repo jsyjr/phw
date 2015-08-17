@@ -2610,6 +2610,17 @@ Example:
 
 (put 'phw-with-original-adviced-function-set 'lisp-indent-function 1)
 
+;; !!!!!!!!!!!!!!!! Caution !!!!!!!!!!!!!!!!!!!!!!!!!!
+;; when editing that file which defines such an advice and then saving and
+;; byte-compiling this file then this reactivates this advice - just a hint -
+;; should be not a problem for PHW because the users should not edit the
+;; phw-code ;-) But we should have this in mind!!!!!!!!!!!!!!!!!!!!!!!
+(defphw-advice-set phw-always-disabled-advices
+  "These advices are always disabled.
+This advice-set can not be enabled by `phw-enable-advices' but such an
+advice has to be activated 'on demand' by the caller. Such an advice must be
+used with the macro `phw-with-phw-advice'.")
+
 ;;; ----- Provide ------------------------------------------
 
 (provide 'phw-util)
