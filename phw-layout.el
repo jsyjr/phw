@@ -113,17 +113,41 @@
 ;;; Code:
 
 (require 'phw-util)
-;;(require 'phw-speedbar)
 (require 'phw-compilation)
 
-(defvar phw-layouts-reload-needed t)
-(defun phw-load-layouts ()
-  "Load all defined layouts"
-  (when phw-layouts-reload-needed
-    (require 'phw-layout-defs)
-    (if (file-readable-p phw-create-layout-file)
-        (load-file phw-create-layout-file))
-    (setq phw-layouts-reload-needed nil)))
+(phw-layout-define "left1" left
+  "This function creates the following layout:
+
+   -------------------------------------------------------
+   |              |                                      |
+   |              |                                      |
+   |              |                                      |
+   |              |                                      |
+   |              |                                      |
+   |              |                                      |
+   |              |                                      |
+   |   History    |                 Edit                 |
+   |              |                                      |
+   |              |                                      |
+   |              |                                      |
+   |              |                                      |
+   |              |                                      |
+   |              |                                      |
+   |              |                                      |
+   -------------------------------------------------------
+   |                                                     |
+   |                    Compilation                      |
+   |                                                     |
+   -------------------------------------------------------
+
+If you have not set a compilation-window in `phw-compile-window-height' then
+the layout contains no persistent compilation window and the other windows get a
+little more place."
+  (phw-set-history-buffer)
+  (select-window (next-window)))
+
+(defconst phw-buildin-layouts (phw-copy-list phw-available-layouts)
+  "All layouts defined until now.")
 
 (defgroup phw-layout nil
   "Settings for the screen-layout of the Emacs code browser."
@@ -153,22 +177,17 @@
                     (select-frame curr-frame)))))))
                     
 
-(defcustom phw-select-edit-window-on-redraw nil
-  "*Select the first edit window on `phw-redraw-layout'."
-  :group 'phw-layout
-  :type 'boolean)
+(defconst phw-select-edit-window-on-redraw nil
+  "*Select the first edit window on `phw-redraw-layout'.")
 
-(defcustom phw-new-phw-frame nil
-  "*Create a new frame at activation time of PHW."
-  :group 'phw-layout
-  :group 'phw-most-important
-  :type 'boolean)
+(defconst phw-new-phw-frame nil
+  "*Create a new frame at activation time of PHW.")
 
 (defcustom phw-activate-before-new-frame-created-hook nil
   "*Hook run before the new PHW-frame is created.
 This has only an effect if `phw-new-phw-frame' is not nil \(otherwise this
 hook is not evaluated)."
-  :group 'phw-layout
+  :group 'phw-hooks
   :type 'hook)
 
 (defvar phw-last-selected-layout nil
@@ -176,48 +195,7 @@ hook is not evaluated)."
 layout.")
 
 ;; TODO: Klaus Berndl <klaus.berndl@sdm.de>: UPDATE the layout-list in the docstring...
-(defcustom phw-layout-name "left8"
-  "*Select a window layout of PHW.
-Value is any arbitrary string. There are four different types of layouts:
-left, right, top and left-right, which means the location of the
-PHW-tree-windows in the PHW-frame. Currently there are 20 predefined layouts;
-names see below. You can savely try out any of them by changing this value and
-saving it only for the current session. If you are sure which layout you want
-you can save it for future sessions. To get a picture of the layout for name
-<name> call `phw-show-layout-help'.
-
-Currently available layouts:
-
-+ Left layouts:
-  left1 left2 left3 left4 left5 left6 left7 left8 left9 left10 left11 left12
-  left13 left14 left15
-
-+ Right layouts:
-  right1
-
-+ Top layouts:
-  top1 top2
-
-+ Left-right layouts:
-  leftright1 leftright2 leftright3
-
-Regardless of the settings you define here: If you have destroyed or
-changed the PHW-screen-layout by any action you can always go back to this
-layout with `phw-redraw-layout'"
-  :group 'phw-layout
-  :group 'phw-most-important
-  :initialize 'custom-initialize-default
-  :set (function (lambda (symbol value)
-                   (phw-load-layouts)
-                   (if (fboundp (intern (format "phw-layout-function-%s"
-                                                value)))
-                       (progn
-                         (setq phw-last-selected-layout phw-layout-name)
-                         (funcall phw-layout-option-set-function
-                                  symbol value))
-                     (phw-error "There is no layout with name %s available!"
-                                value))))
-  :type 'string)
+(defvar phw-layout-name "left1")
 
 (defun phw-enable-temp-buffer-shrink-to-fit (arg)
   "Enables `temp-buffer-resize-mode' \(GNU Emacs) rsp.
@@ -323,75 +301,14 @@ layout with `phw-redraw-layout'"
 
 
 
-(defcustom phw-compile-window-width 'frame
-  "*Width of the compile-window.
+(defconst phw-compile-window-width 'frame
+  "*Width of the compile-window.")
 
-Possible values are 'frame and 'edit-window.
-With 'frame the compile-window looks like:
-
-   -------------------------------------------------------
-   |              |                                      |
-   |  Directories |                                      |
-   |              |                                      |
-   |--------------|            edit-window(s)            |
-   |              |                                      |
-   |  Methods     |                                      |
-   |              |                                      |
-   -------------------------------------------------------
-   |                                                     |
-   |                    Compilation                      |
-   |                                                     |
-   -------------------------------------------------------
-
-
-With 'edit-window the compile-window looks like:
-
-   -------------------------------------------------------
-   |              |                                      |
-   |  Directories |                                      |
-   |              |                                      |
-   |--------------|            edit-window(s)            |
-   |              |                                      |
-   |  Methods     |                                      |
-   |              |                                      |
-   |              |---------------------------------------
-   |              |                                      |
-   |              |            Compilation               |
-   |              |                                      |
-   -------------------------------------------------------
-
-This option takes only effect if `phw-compile-window-height' is not nil!"
-  :group 'phw-compilation
-  :group 'phw-most-important
-  :initialize 'custom-initialize-default
-  :set (function (lambda (symbol value)
-                   ;; Emacs < 22 has some bugs concerning `windows-size-fixed'
-                   ;; so we must disable window-fixing.
-                   (and (not phw-running-gnu-emacs-version-22) (phw-set-window-size-fixed nil))
-                   (set symbol value)
-                   ;; we must check this because otherwise the layout would be
-                   ;; drawn if we have changed the initial value regardless if
-                   ;; PHW is activated or not.
-                   (when (and (boundp 'phw-minor-mode)
-                              phw-minor-mode
-                              (frame-live-p phw-frame))
-                     (let ((curr-frame (selected-frame)))
-                       (unwind-protect
-                           (progn
-                             (select-frame phw-frame)
-                             (phw-redraw-layout-full nil nil nil
-                                                     phw-windows-hidden-state))
-                         (select-frame curr-frame))))))
-  :type '(radio (const :tag "Width of PHW-frame" :value frame)
-                (const :tag "Width of edit-window" :value edit-window)))
-
-(defcustom phw-change-layout-preserves-compwin-state t
+(defconst phw-change-layout-preserves-compwin-state t
   "*Changing the layout preserves the state of the compile-window.
 This is for example useful if the user toggles between several layouts \(see
 `phw-toggle-layout') and wants to preserve the hidden-state of the
-compile-window."
-  :group 'phw-compilation
-  :type 'boolean)
+compile-window.")
 
 (defcustom phw-compile-window-temporally-enlarge 'after-display
   "*Let Emacs temporally enlarge the compile-window of the PHW-layout.
@@ -966,43 +883,6 @@ change."
                (repeat :tag "Modes for invisible phw-windows"
                        (symbol :tag "Major-mode"))))
 
-(defcustom phw-toggle-layout-sequence '("left9" "left14")
-  "*Toggle sequence for layout toggling with `phw-toggle-layout'.
-Every element of this list has to be a valid layout-name \(a string) i.e.
-either one of the predefined layouts or one of the user-defined layouts \(see
-`phw-create-new-layout').
-
-You can add here as many layouts as you want but to use this option most
-effective you should not add more than 2 or 3 layouts so every layout can be
-accessed very fast by toggling with `phw-toggle-layout'. It is also senseful
-to add layouts which have the same principal outline, i.e. all their
-tree-buffers are on the same side of the frame and the
-tree-buffer-\"column\" \(or -\"row\") has identical size for the layouts.
-
-Recommended values are for example:
-- \(\"left10\" \"left15\"), toggles between methods and directories/history
-- \(\"left10\" \"left13\"), toggles between methods and directories
-- \(\"left10\" \"left14\"), toggles between methods and history
-- \(\"left10\" \"left13\" \"left14\"), toggles between methods, history and
-  directories
-
-See also option `phw-show-sources-in-directories-buffer'.
-
-This option makes only sense if the value is a list with more than 1 element!"
-  :group 'phw-layout
-  :type '(repeat (string :tag "Layout name."))
-  :initialize 'custom-initialize-default
-  :set (function (lambda (symbol value)
-                   (phw-load-layouts)
-                   (dolist (name value)
-                     (if (and (boundp 'phw-minor-mode)
-                              phw-minor-mode
-                              (not (fboundp (intern
-                                             (format "phw-layout-function-%s"
-                                                     name)))))
-                         (phw-error "There is no layout available with name %s!"
-                                    name)))
-                   (set symbol value))))
 
 (defcustom phw-left-right-layout-hide-sequence '(left-side all right-side none)
   "*"

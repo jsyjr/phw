@@ -39,11 +39,7 @@
 ;; 4. If there are differences then send this output to
 ;;    the phw-mailing-list (see Info-manual)
 
-(eval-when-compile
-  (require 'silentcomp))
-
 (require 'phw-util)
-(require 'phw-common-browser)
 
 (defphw-advice-set phw-advice-test-set
   "An advice-set only for testing the advice-mechanism of PHW")
@@ -275,7 +271,7 @@
 ;;  I'm the ORIGINAL function phw-advice-test-defun-4
 ;;  !!! END phw-test-with-original-advice-set !!!!
 
-(silentcomp-provide 'phw-advice-test)
+(provide 'phw-advice-test)
 
 ;;; phw, 2015-advice-test.el ends here
 
