@@ -115,40 +115,6 @@
 (require 'phw-util)
 (require 'phw-compilation)
 
-(phw-layout-define "left1" left
-  "This function creates the following layout:
-
-   -------------------------------------------------------
-   |              |                                      |
-   |              |                                      |
-   |              |                                      |
-   |              |                                      |
-   |              |                                      |
-   |              |                                      |
-   |              |                                      |
-   |   History    |                 Edit                 |
-   |              |                                      |
-   |              |                                      |
-   |              |                                      |
-   |              |                                      |
-   |              |                                      |
-   |              |                                      |
-   |              |                                      |
-   -------------------------------------------------------
-   |                                                     |
-   |                    Compilation                      |
-   |                                                     |
-   -------------------------------------------------------
-
-If you have not set a compilation-window in `phw-compile-window-height' then
-the layout contains no persistent compilation window and the other windows get a
-little more place."
-  (phw-set-history-buffer)
-  (select-window (next-window)))
-
-(defconst phw-buildin-layouts (phw-copy-list phw-available-layouts)
-  "All layouts defined until now.")
-
 (defgroup phw-layout nil
   "Settings for the screen-layout of the Emacs code browser."
   :group 'phw
@@ -4515,6 +4481,40 @@ Postconditions for CREATE-CODE:
          (quote ,(intern
                   (format "phw-delete-window-phw-windows-%s" type)))))
      (phw-available-layouts-add ,name (quote ,type))))
+
+(phw-layout-define "left1" left
+  "This function creates the following layout:
+
+   -------------------------------------------------------
+   |              |                                      |
+   |              |                                      |
+   |              |                                      |
+   |              |                                      |
+   |              |                                      |
+   |              |                                      |
+   |              |                                      |
+   |   History    |                 Edit                 |
+   |              |                                      |
+   |              |                                      |
+   |              |                                      |
+   |              |                                      |
+   |              |                                      |
+   |              |                                      |
+   |              |                                      |
+   -------------------------------------------------------
+   |                                                     |
+   |                    Compilation                      |
+   |                                                     |
+   -------------------------------------------------------
+
+If you have not set a compilation-window in `phw-compile-window-height' then
+the layout contains no persistent compilation window and the other windows get a
+little more place."
+  (phw-set-history-buffer)
+  (select-window (next-window)))
+
+(defconst phw-buildin-layouts (phw-copy-list phw-available-layouts)
+  "All layouts defined until now.")
 
 ;; we want proper editing with phw-layout-define like follows:
 ;; (phw-layout-define "name" left
