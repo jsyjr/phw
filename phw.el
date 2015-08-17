@@ -40,7 +40,7 @@
 ;;   |                                                |
 ;;   |                                                |
 ;;   |                  Edit-area                     |
-;;   |   (can be splitted in several edit-windows)    |
+;;   |    (can be split into several edit-windows)    |
 ;;   |                                                |
 ;;   |                                                |
 ;;   |                                                |
@@ -404,17 +404,7 @@ PHW-frame if called from another frame. This is the same as calling
 with the actually chosen layout \(see `phw-layout-name'). This function raises
 always the PHW-frame if called from another frame."
 
-  (if phw-use-recursive-edit
-      (if phw-minor-mode
-	  (progn
-	    (message "PHW already activated. Drawing layout.")
-	    (phw-redraw-layout))
-	(catch 'exit
-	  (progn
-	    (phw-activate--impl)
-	    (recursive-edit))
-	  (phw-deactivate-internal)))
-    (phw-activate--impl))
+  (phw-activate--impl)
   phw-minor-mode)
 
 
@@ -461,6 +451,24 @@ value of VAR is as before storing a NEW-VALUE for variable-symbol VAR."
          (setq phw-temporary-changed-emacs-variables-alist
                (phw-remove-assoc var phw-temporary-changed-emacs-variables-alist)))))))
 
+(defun autocontrol-hook (func pre add)
+  "Add or remove FUNC from various command hooks.
+If ADD is non-nil then add the function to the appropriate hooks
+otherwise remove it.  If PRE is non-null then the hooks are
+`pre-command-hook' and `phw-pre-command-hooks' otherwise they are
+`post-command-hook' and `phw-post-command-hooks'."
+  (cond (add (cond (pre
+                    (add-hook    'pre-command-hook       func)
+                    (add-hook    'phw-pre-command-hooks  func))
+                   (nil
+                    (add-hook    'post-command-hook      func)
+                    (add-hook    'phw-post-command-hooks func))))
+        (nil (cond (pre
+                    (remove-hook 'pre-command-hook       func)
+                    (remove-hook 'phw-pre-command-hooks  func))
+                   (nil
+                    (remove-hook 'post-command-hook      func)
+                    (remove-hook 'phw-post-command-hooks func))))))
 
 (defun phw-activate--impl ()
   "See `phw-activate'.  This is the implementation of PHW activation."
@@ -472,8 +480,7 @@ value of VAR is as before storing a NEW-VALUE for variable-symbol VAR."
                  (or (equal phw-activation-selects-phw-frame-if-already-active t)
                      (and (equal phw-activation-selects-phw-frame-if-already-active 'ask)
                           (y-or-n-p "PHW is already active in another frame. Select it? "))))
-        (phw-select-phw-frame)
-        (phw-update-directories-buffer))
+        (phw-select-phw-frame))
 
     (let ((debug-on-error debug-on-error))
       ;; we activate only if all before-hooks return non nil
@@ -488,31 +495,8 @@ value of VAR is as before storing a NEW-VALUE for variable-symbol VAR."
                    (boundp 'progress-feedback-use-echo-area))
           (phw-modify-emacs-variable 'progress-feedback-use-echo-area 'store t))
 
-        ;; checking the requirements
-        (phw-check-requirements)
-
         (condition-case err-obj
             (progn
-
-              ;; initialize the navigate-library
-              (phw-nav-initialize)
-
-              ;; enable basic advices (we need the custom-save-all advice
-              ;; already here! Maybe it would be better to remove this advice
-              ;; from the basic-advices and add it to upgrade-advices.....)
-              ;;(phw-enable-advices 'phw-layout-basic-adviced-functions)
-
-              ;; we need the custom-all advice here!
-              (phw-enable-advices 'phw-methods-browser-advices)
-
-              ;; maybe we must upgrade some not anymore compatible or even renamed
-              ;; options
-              (when (and phw-auto-compatibility-check
-                         (not phw-upgrade-check-done))
-                (phw-check-not-compatible-options)
-                (phw-upgrade-not-compatible-options)
-                (phw-upgrade-renamed-options)
-                (setq phw-upgrade-check-done t))
 
               ;; first initialize the whole layout-engine
               (phw-initialize-layout)
@@ -524,10 +508,10 @@ value of VAR is as before storing a NEW-VALUE for variable-symbol VAR."
               (phw-enable-advices 'phw-permanent-adviced-layout-functions)
 
               ;; enable advices for not supported window-managers
-              (phw-enable-advices 'phw-winman-not-supported-function-advices)
+;;              (phw-enable-advices 'phw-winman-not-supported-function-advices)
 
               ;; enable advices for the compatibility with other packages
-              (phw-enable-advices 'phw-compatibility-advices)
+;;              (phw-enable-advices 'phw-compatibility-advices)
 
               ;; set the phw-frame
               (let ((old-phw-frame phw-frame))
@@ -550,17 +534,6 @@ value of VAR is as before storing a NEW-VALUE for variable-symbol VAR."
 
               ;; now we can activate PHW
 
-              ;; first we run all tree-buffer-creators
-              (phw-tree-buffer-creators-run)
-
-              ;; activate the eshell-integration - does not load eshell but
-              ;; prepares PHW to run eshell right - if loaded and activated
-              (phw-eshell-activate-integration)
-
-              (phw-activate-phw-autocontrol-function phw-highlight-tag-with-point-delay
-                                                     'phw-tag-sync)
-              (phw-activate-phw-autocontrol-function phw-basic-buffer-sync-delay
-                                                     'phw-basic-buffer-sync)
               (phw-activate-phw-autocontrol-function phw-compilation-update-idle-time
                                                      'phw-compilation-buffer-list-changed-p)
               (phw-activate-phw-autocontrol-function 'post
@@ -573,8 +546,6 @@ value of VAR is as before storing a NEW-VALUE for variable-symbol VAR."
                                                      'phw-handle-major-mode-visibilty)
               (add-hook 'after-save-hook 'phw-update-methods-after-saving)
               (add-hook 'kill-buffer-hook 'phw-kill-buffer-hook)
-
-              (add-hook 'find-file-hooks 'phw-find-file-hook)
 
               ;; after adding all idle-timers and post- and pre-command-hooks we
               ;; activate the monitoring
@@ -591,9 +562,6 @@ value of VAR is as before storing a NEW-VALUE for variable-symbol VAR."
               ;; ediff-stuff; we operate here only with symbols to avoid bytecompiler
               ;; warnings
               (phw-activate-ediff-compatibility)
-
-              ;; enabling the VC-support
-              (phw-vc-enable-internals 1)
 
               )
           (error
@@ -759,28 +727,12 @@ value of VAR is as before storing a NEW-VALUE for variable-symbol VAR."
 
       (phw-enable-temp-buffer-shrink-to-fit nil)
 
-      ;; deactivate and reset the speedbar stuff
-      (ignore-errors (phw-speedbar-deactivate))
-
-      ;; deactivates the eshell-integration; this disables also the
-      ;; eshell-advices!
-      (phw-eshell-deactivate-integration)
-
-      ;; For XEmacs
-      (tree-buffer-activate-follow-mouse)
-      (tree-buffer-deactivate-follow-mouse)
-
       (phw-stop-all-autocontrol/sync-functions)
       (remove-hook 'after-save-hook 'phw-update-methods-after-saving)
       (remove-hook 'kill-buffer-hook 'phw-kill-buffer-hook)
 
-      (remove-hook 'find-file-hooks 'phw-find-file-hook)
-
       ;; ediff-stuff
       (phw-deactivate-ediff-compatibility)
-
-      ;; disabling the VC-support
-      (phw-vc-enable-internals -1)
 
       ;; run any personal hooks
       (unless run-no-hooks
