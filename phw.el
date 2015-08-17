@@ -108,13 +108,6 @@
   "Only true if any item in any tree-buffer has been selected in recent
 command.")
 
-(defun phw-initialize-all-internals (&optional no-caches)
-  (phw-phw-buffer-registry-init)
-  (setq phw-major-mode-selected-source nil
-        phw-item-in-tree-buffer-selected nil)
-  (phw-file-browser-initialize no-caches)
-  (phw-method-browser-initialize no-caches))
-
 ;; Klaus Berndl <klaus.berndl@sdm.de>: FRAME-LOCAL
 (defvar phw-minor-mode nil
   "Do not set this variable directly. Use `phw-activate' and
@@ -523,9 +516,6 @@ value of VAR is as before storing a NEW-VALUE for variable-symbol VAR."
 
               ;; first initialize the whole layout-engine
               (phw-initialize-layout)
-
-              ;; initialize internals
-              (phw-initialize-all-internals (not phw-clear-caches-before-activate))
 
               ;; enable permanent advices - these advices will never being
               ;; deactivated after first activation of PHW unless
@@ -962,9 +952,5 @@ exist."
 
 (dolist (adviced-set-elem phw-adviced-function-sets)
   (phw-disable-advices (car adviced-set-elem) t))
-
-;; init the method- and file-browser at load-time
-(phw-file-browser-initialize)
-(phw-method-browser-initialize)
 
 (provide 'phw)
