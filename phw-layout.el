@@ -1306,55 +1306,6 @@ additionaly if a window is not dedicated."
 
 (defvar phw-last-major-mode nil)
 
-(defphw-autocontrol/sync-function phw-handle-major-mode-visibilty nil nil nil
-  "Added to `post-command-hook' after loading the phw-library. Handles the
-value `phw-major-modes-show-or-hide'. Because this hook of `post-command-hook'
-does nothing if the major-mode has not changed there should be no
-performance-problem!"
-  ;; Klaus: I think we need this to prevent doing here (de)activation
-  ;; immediately after the button-pressed event (which is a command) because
-  ;; then a mysterious window-live-p error for the minibuffer-window occurs if
-  ;; we click onto a file which deactivates PHW.
-  ;; With this the (de)activation is first done after the button-released
-  ;; event which is created by Emacs for every tree-buffer click and is bound
-  ;; to a nop.
-  ;; At least this is my current interpretation and it works :-)
-  ;; TODO: detecting the real reason why this happens and fixing it.
-  (if (and phw-item-in-tree-buffer-selected
-           (equal phw-tree-mouse-action-trigger 'button-press))
-      (setq phw-item-in-tree-buffer-selected nil)
-    ;; do nothing if major-mode has not been changed or if a minibuffer is
-    ;; active or if now one of the phw-buffers is active or the compile-window
-    ;; is the selected window
-    (when (and (not (> (minibuffer-depth) 0))
-               (not (equal phw-last-major-mode major-mode))
-               (not (phw-point-in-dedicated-special-buffer))
-               (not (equal (selected-window) phw-compile-window)))
-;;                (not (member (current-buffer)
-;;                             (phw-get-current-visible-phw-buffers))))
-      (let ((last-mode phw-last-major-mode))
-        (setq phw-last-major-mode major-mode)
-        (ignore-errors
-          (cond ((member major-mode (car phw-major-modes-show-or-hide))
-                 (let ((edit-win-list (phw-canonical-edit-windows-list)))
-                   ;; the window must not be splitted or if splitted the last
-                   ;; major-mode must be dired-mode
-                   (when (or (not (phw-edit-window-splitted edit-win-list))
-                             (equal last-mode 'dired-mode))
-                     (and (phw-point-in-edit-window-number edit-win-list)
-                          (phw-windows-all-hidden)
-                          (phw-show-phw-windows)))))
-                ((member major-mode (cdr phw-major-modes-show-or-hide))
-                 (let ((edit-win-list (phw-canonical-edit-windows-list)))
-                   ;; the window must not be splitted or if splitted the last
-                   ;; major-mode must be dired-mode
-                   (when (or (not (phw-edit-window-splitted edit-win-list))
-                             (equal last-mode 'dired-mode))
-                     (and (phw-point-in-edit-window-number edit-win-list)
-                          (not (phw-windows-all-hidden))
-                          (phw-hide-phw-windows))))))))))
-  )
-
 (defun phw-initialize-layout ()
   ;; We do not initialize the `phw-frame'!
   (setq phw-edit-window nil
@@ -2711,7 +2662,7 @@ it will be computed."
 ;; function which calls `phw-window-list' because this would slow-down the
 ;; performance of all Emacs-versions unless GNU Emacs >= 21 because they have no
 ;; builtin `window-list'-function.
-(defphw-autocontrol/sync-function phw-layout-pre-command-hook nil nil nil
+(defun phw-layout-pre-command-hook ()
   "During activated PHW this function is added to `pre-command-hook' to set
 always `phw-last-edit-window-with-point', `phw-last-source-buffer',
 `phw-compile-window-was-selected-before-command' and
@@ -2738,11 +2689,10 @@ can use these variables."
     (if (phw-point-in-dedicated-special-buffer)
         (setq phw-phw-buffer-name-selected-before-command (buffer-name))
       (setq phw-phw-buffer-name-selected-before-command nil))))
-      
 
 (defvar phw-layout-prevent-handle-compile-window-selection nil)
 (defvar phw-last-edit-area-creators nil)
-(defphw-autocontrol/sync-function phw-layout-post-command-hook nil nil nil
+(defun phw-layout-post-command-hook ()
   "During activated PHW this function is added to `post-command-hook' to do
 some special tasks:
 - handling of `phw-compile-window-temporally-enlarge'
@@ -5006,7 +4956,7 @@ for the quick version!"
     (message "PHW redrawing layout...done")))
 
 
-(defphw-autocontrol/sync-function phw-repair-only-phw-window-layout nil nil nil
+(defun phw-repair-only-phw-window-layout ()
   "Repair the phw-window layout if it has been destroyed."
   ;; In the following situation repairing the layout with preserving all
   ;; states of all edit-windows and the compile-window (incl. all sizes) makes
@@ -5018,71 +4968,7 @@ for the quick version!"
   ;; 5. we have less phw-windows than we should have
   ;; 6. Emacs does not wait for output of a running process where the
   ;;    associated process-buffer is visible in the phw-frame
-
-  ;; Then we redraw the layout with the current window-configuration-data
-  ;; (i.e. all data of all edit-windows and all data of the compile window) so
-  ;; we get back all phw-windows of current lyout but preserve the
-  ;; edit-windows and also the compile-window (incl. its height).
-  (if (and (phw-compile-window-live-p)
-           (not (phw-windows-all-hidden))
-           (not (phw-buffer-is-maximized-p))
-           (not (minibuffer-window-active-p (minibuffer-window phw-frame)))
-           (not (equal (mapcar 'buffer-name
-                               (phw-get-current-visible-phw-buffers))
-                       phw-special-phw-buffers-of-current-layout))
-           ;; Klaus Berndl <klaus.berndl@sdm.de>: Currently this is not
-           ;; perfect, because for example with a *shell* buffer visible this
-           ;; returns nil even if the shell-buffer will probably not be in use
-           ;; by Emacs - but for savety we have to incl. *shell* because a
-           ;; long running shell-job could run where the job inserts output in
-           ;; the shell-buffer.
-           (not (delq nil (mapcar (function (lambda (p)
-                                              (and (process-buffer p)
-                                                   (get-buffer-window (process-buffer p)
-                                                                      phw-frame))))
-                                  (process-list)))))
-      (let ((config-data (phw-window-configuration-data))
-            ;; (win-config-before (phw-current-window-configuration))
-            (success nil))
-        (phw-layout-debug-error "phw-repair-phw-window-layout: Current phw-windows: %s"
-                                (phw-get-current-visible-phw-buffers))
-        (phw-layout-debug-error "phw-repair-phw-window-layout: We repair with data: %s"
-                                config-data)
-        (setq success (condition-case oops
-                          (progn
-                            (phw-redraw-layout-full nil nil config-data)
-                            (equal (mapcar 'buffer-name
-                                           (phw-get-current-visible-phw-buffers))
-                                   phw-special-phw-buffers-of-current-layout))
-                        (error
-                         (phw-layout-debug-error "phw-repair-only-phw-window-layout failed (error-type: %S, error-data: %S)"
-                                                 (car oops) (cdr oops))
-                         nil)))
-        (when (not success)
-          ;; Reseting to the window-config before is good when done
-          ;; interactively but not with an idle-times because then this reset
-          ;; would be done until the user creates a window-config where no
-          ;; repair is necessary or at least the repair doesn't fail. So we
-          ;; have to implement a smarter mechanism..............
-          nil ;; (phw-set-window-configuration win-config-before)
-          ))))
-
-
-;; left, right, top: no problem
-;; left-right:
-;; 1. If edges of compare window CW > phw-window EW ==> left-column, if CW <
-;;    EW ==> right column
-;; compare-window CW: choose the first window of that window-list
-;; which contains only windows which are not an phw-window and also not the
-;; compile-window (this works also if there is no edit window, ie. e.g. if all
-;; other windows are dedicated too, maybe another tool(e.g. ediff) sets all
-;; windows dedicated!) It's not possible that only phw-windows (and/or a
-;; compile-window) exist in the phw-frame! therefore the mechanism above works
-;; save!
-;;
-;; This above is not a general rightmost/leftmost-algorithm! But for our needs
-;; it does its work. If we want a general mechanism for right/leftmost-window
-;; we can steal it from windmove.el!
+  )
 
 (defun phw-get-phw-window-location (&optional phw-window residual-window)
   "Return the location an phw-window reside in the phw-frame.

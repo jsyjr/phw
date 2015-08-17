@@ -249,20 +249,11 @@ either
   (setq phw-compilation-buffer-list-cache nil)
   (phw-compilation-buffer-list-changed-p))
 
-(defphw-autocontrol/sync-function phw-compilation-buffer-list-changed-p nil nil nil
+(defun phw-compilation-buffer-list-changed-p ()
   "Check if current active buffer list has changed - i.e. if a new buffer has
 been created or a buffer has been deleted. If yes then
 `phw-compilation-update-menu-p' is set to not nil and the cache is updated."
-  (let ((new-buffer-list (buffer-list)))
-    (when (not (equal new-buffer-list
-                      phw-compilation-buffer-list-cache))
-      (phw-bodytrace-autocontrol/sync-fcn-error
-       'phw-compilation-buffer-list-changed-p
-       "New buffer list not equal with cached buffer list.")
-      (setq phw-compilation-buffer-list-cache new-buffer-list)
-      ;; Nowhere else this variable will be set to t.
-      (setq phw-compilation-update-menu-p t))))
-
+  )
 
 (defun phw-compilation-update-menu()
   "Create an install a menu that allows the user to navigate buffers that are
