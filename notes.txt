@@ -1,0 +1,23 @@
+;; Navigation
+C-x o		Alternate between current edit window and PCW
+C-. .		Jomp to PCW (of if in PCW then cycle)
+C-. n		Jump to next edit window
+C-. p		Jump to previous edit window
+C-. 1-9		Jump to edit window N (or if in edit window N then cycle)
+
+;; Moving buffers between windows
+C-. m .		Send selected buffer to PCW and mark for PCW
+C-. m 1-9	Send selected buffer to edit window N and unmark for PCW
+
+;; Swap window contents
+C-. t		Swap/transpose contents of current edit window and next
+
+;; Resizing current edit window
+C-. /		Cycle: unlocked, max, min
+
+
+
+PCW
+edit-N
+edit-N / min
+edit-N / max
