@@ -164,10 +164,9 @@ layout.")
 (defvar phw-layout-name "left1")
 
 (defun phw-enable-temp-buffer-shrink-to-fit (arg)
-  "Enables `temp-buffer-resize-mode' \(GNU Emacs) rsp.
-`temp-buffer-shrink-to-fit' \(XEmacs) when a comile-window is used. When the
-compile-window is disabled or when PHW is deactivated then the old state of
-these modes/variables is restored."
+  "Enables `temp-buffer-resize-mode' when a comile-window is used.
+When the compile-window is disabled or when PHW is deactivated then
+the old state of these modes/variables is restored."
   (if arg
       (progn
         ;; store old value if not already done
@@ -175,27 +174,18 @@ these modes/variables is restored."
                  'phw-old-temp-buffer-shrink-to-fit)
             (put 'phw-enable-temp-buffer-shrink-to-fit
                  'phw-old-temp-buffer-shrink-to-fit
-                 (cons 'stored
-                       (if phw-running-xemacs
-                           temp-buffer-shrink-to-fit
-                         temp-buffer-resize-mode))))
+                 (cons 'stored temp-buffer-resize-mode)))
         ;; now we activate temp-buffer-shrinking
-        (if phw-running-xemacs
-            (setq temp-buffer-shrink-to-fit t)
-          (temp-buffer-resize-mode 1))
+        (temp-buffer-resize-mode 1)
         )
     ;; reset to the original value
     (and (get 'phw-enable-temp-buffer-shrink-to-fit
               'phw-old-temp-buffer-shrink-to-fit)
-         (if phw-running-xemacs
-             (setq temp-buffer-shrink-to-fit
-                   (cdr (get 'phw-enable-temp-buffer-shrink-to-fit
-                             'phw-old-temp-buffer-shrink-to-fit)))
-           (temp-buffer-resize-mode
-            (if (cdr (get 'phw-enable-temp-buffer-shrink-to-fit
-                          'phw-old-temp-buffer-shrink-to-fit))
-                1
-              -1))))
+         (temp-buffer-resize-mode
+          (if (cdr (get 'phw-enable-temp-buffer-shrink-to-fit
+                        'phw-old-temp-buffer-shrink-to-fit))
+              1
+            -1)))
     (put 'phw-enable-temp-buffer-shrink-to-fit
          'phw-old-temp-buffer-shrink-to-fit
          nil)))
@@ -834,22 +824,6 @@ Please read also carefully the documentation of `phw-redraw-layout'."
   :type 'boolean
   :group 'phw-layout)
 
-(defcustom phw-major-modes-show-or-hide (cons nil nil)
-  "*List of major-modes which show or hide the phw-windows.
-The value is a cons-cell where the car contains all major-mode-symbols which
-should show the special phw-windows and the cdr contains all
-major-mode-symbols which should hide the special phw-windows. If the symbol of
-a major-mode is neither contained in the car-\"show-list\" nor in the
-cdr-\"hide-list\" then the visibility-state of the phw-windows does not
-change."
-  :group 'phw-layout
-  :group 'phw-most-important
-  :type '(cons (repeat :tag "Modes for visible phw-windows"
-                       (symbol :tag "Major-mode"))
-               (repeat :tag "Modes for invisible phw-windows"
-                       (symbol :tag "Major-mode"))))
-
-
 (defcustom phw-left-right-layout-hide-sequence '(left-side all right-side none)
   "*"
   :group 'phw-layout
@@ -1205,7 +1179,7 @@ is no compile-window displayed."
 ;; ====== basic advices ======================================================
 
 (defphw-advice-set phw-layout-basic-adviced-functions
-  "All functions  needed to be adviced for the layout-engine of PHW.")
+  "All functions needed to be adviced for the layout-engine of PHW.")
 
 (defphw-advice delete-frame around phw-layout-basic-adviced-functions
   "If FRAME is equal to the PHW frame then the user will be asked if he want
@@ -3659,6 +3633,9 @@ Otherwise it depends completely on the setting in `phw-other-window-behavior'."
                                          o-w-s-b)))
       ad-do-it)))
 
+
+(defphw-advice-set phw-always-disabled-advices
+  "")
 
 (defphw-advice walk-windows around phw-always-disabled-advices
   "Walk only through the edit-windows of PHW. When PHW is not active or

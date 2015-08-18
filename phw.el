@@ -222,32 +222,6 @@ See also `phw-before-activate-hook'."
 ;; Internals
 ;;====================================================
 
-(defun phw-kill-buffer-hook ()
-  "Function added to the `kill-buffer-hook' during PHW activation.
-  It does several tasks:
-- Depending on the value in `phw-kill-buffer-clears-history' the corresponding
-  entry in the history-buffer is removed.
-- Clearing the method buffer if a file-buffer has been killed.
-- The entry of the removed file-buffer is removed from `phw-tag-tree-cache'."
-  (let* ((curr-buf (current-buffer))
-         (buffer-file (phw-fix-filename (phw-buffer-file-name curr-buf))))
-    ;; this prevents automatically from killing one of the phw-buffers because
-    ;; these ones are never releated to file!
-    (when buffer-file
-      ;; 1. clearing the history if necessary
-      (phw-history-kill-buffer-clear curr-buf)
-
-      ;; 2. clearing the method buffer if a file-buffer is killed
-      (phw-rebuild-methods-buffer-with-tagcache nil nil t)
-
-      ;; 3. removing the file-buffer from `phw-tag-tree-cache'. Must be done
-      ;;    after 2. because otherwise a new element in the cache would be
-      ;;    created again by `phw-rebuild-methods-buffer-with-tagcache'.
-      (phw-clear-tag-tree-cache (buffer-name curr-buf)))
-    (when (member curr-buf (phw-get-current-visible-phw-buffers))
-      (phw-error "Killing an special PHW-buffer is not possible!"))))
-
-
 (defun phw-add-to-minor-modes ()
   "Does all necessary to add PHW as a minor mode with current values of
 `phw-mode-map' and `phw-minor-mode-text'."
@@ -451,7 +425,7 @@ value of VAR is as before storing a NEW-VALUE for variable-symbol VAR."
          (setq phw-temporary-changed-emacs-variables-alist
                (phw-remove-assoc var phw-temporary-changed-emacs-variables-alist)))))))
 
-(defun autocontrol-hook (func pre add)
+(defun update-autocontrol (func pre add)
   "Add or remove FUNC from various command hooks.
 If ADD is non-nil then add the function to the appropriate hooks
 otherwise remove it.  If PRE is non-null then the hooks are
@@ -469,6 +443,14 @@ otherwise remove it.  If PRE is non-null then the hooks are
                    (nil
                     (remove-hook 'post-command-hook      func)
                     (remove-hook 'phw-post-command-hooks func))))))
+
+(defun update-hook (add)
+  (if add (function add-hook) (function remove-hook)))
+
+(defun update-all-hooks (add)
+  (update-autocontrol 'phw-layout-pre-command-hook     t   add)
+  (update-autocontrol 'phw-layout-post-command-hook    nil add)
+  (update-autocontrol 'phw-handle-major-mode-visibilty nil add))
 
 (defun phw-activate--impl ()
   "See `phw-activate'.  This is the implementation of PHW activation."
@@ -533,31 +515,7 @@ otherwise remove it.  If PRE is non-null then the hooks are
               (phw-enable-own-temp-buffer-show-function t)
 
               ;; now we can activate PHW
-
-              (phw-activate-phw-autocontrol-function phw-compilation-update-idle-time
-                                                     'phw-compilation-buffer-list-changed-p)
-              (phw-activate-phw-autocontrol-function 'post
-                                                     'phw-layout-post-command-hook)
-              (phw-activate-phw-autocontrol-function 'pre
-                                                     'phw-layout-pre-command-hook)
-              (phw-activate-phw-autocontrol-function 0.5
-                                                     'phw-repair-only-phw-window-layout)
-              (phw-activate-phw-autocontrol-function 'post
-                                                     'phw-handle-major-mode-visibilty)
-              (add-hook 'after-save-hook 'phw-update-methods-after-saving)
-              (add-hook 'kill-buffer-hook 'phw-kill-buffer-hook)
-
-              ;; after adding all idle-timers and post- and pre-command-hooks we
-              ;; activate the monitoring
-              (phw-activate-phw-autocontrol-function 1 'phw-monitor-autocontrol-functions)
-
-              ;; We activate the stealthy update mechanism
-              (phw-stealthy-function-state-init)
-              (phw-activate-phw-autocontrol-function phw-stealthy-tasks-delay
-                                                      'phw-stealthy-updates)
-
-              ;; running the compilation-buffer update first time
-              (phw-compilation-buffer-list-init)
+              (update-all-hooks t)
 
               ;; ediff-stuff; we operate here only with symbols to avoid bytecompiler
               ;; warnings
@@ -727,9 +685,7 @@ otherwise remove it.  If PRE is non-null then the hooks are
 
       (phw-enable-temp-buffer-shrink-to-fit nil)
 
-      (phw-stop-all-autocontrol/sync-functions)
-      (remove-hook 'after-save-hook 'phw-update-methods-after-saving)
-      (remove-hook 'kill-buffer-hook 'phw-kill-buffer-hook)
+      (update-all-hooks nil)
 
       ;; ediff-stuff
       (phw-deactivate-ediff-compatibility)
