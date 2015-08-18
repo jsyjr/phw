@@ -44,7 +44,7 @@
 ;;; ----- Some constants -----------------------------------
 
 ;;;###autoload
-(defconst phw-running-xemacs (featurep 'xemacs))
+(defconst phw-running-xemacs nil)
 
 (defconst phw-running-gnu-emacs (not phw-running-xemacs))
 
@@ -74,14 +74,6 @@
       (expand-file-name (file-name-directory (locate-library "semantic")))))
 
 (defconst phw-phw-parent-dir (expand-file-name (concat phw-phw-dir "../")))
-
-;; we assume that current loaded PHW is a regular XEmacs-package if and only
-;; if `phw-phw-dir' contains the files "_pkg.el" and "auto-autoloads.el" and
-;; we are running XEmacs
-(defconst phw-regular-xemacs-package-p
-  (and phw-running-xemacs
-       (file-exists-p (expand-file-name (concat phw-phw-dir "_pkg.el")))
-       (file-exists-p (expand-file-name (concat phw-phw-dir "auto-autoloads.el")))))
 
 ;; image support possible with current Emacs setup?
 ;; This will first checked at activation-time of PHW because otherwise usage
@@ -141,177 +133,78 @@ semantic!. If not use the form \(when phw-running-gnu-emacs-version-23)."
   `(when phw-running-gnu-emacs-version-23
      ,@body))
 
-;; I do not want all this compatibitly stuff being parsed by semantic,
-;; therefore i do not use the macro `when-phw-running-xemacs'!
-
-(when phw-running-xemacs
-  (defun phw-event-to-key (event)
-    (typecase event
-      (button-release-event 'mouse-release)
-      (button-press-event 'mouse-press)
-      (otherwise
-       ;; the ignore-errors is a little hack because i don't know all
-       ;; events of XEmacs so sometimes event-key produces a
-       ;; wrong-type-argument error.
-       (ignore-errors (event-key event)))))
-  (defun phw-facep (face)
-    (memq face (face-list)))
-  (defun phw-noninteractive ()
-    "Return non-nil if running non-interactively, i.e. in batch mode."
-    (noninteractive))
-  (defun phw-subst-char-in-string (fromchar tochar string &optional inplace)
-    "Replace FROMCHAR with TOCHAR in STRING each time it occurs.
-Unless optional argument INPLACE is non-nil, return a new string."
-    (let ((i (length string))
-          (newstr (if inplace string (copy-sequence string))))
-      (while (> i 0)
-        (setq i (1- i))
-        (if (eq (aref newstr i) fromchar)
-            (aset newstr i tochar)))
-      newstr))
-  (defun phw-substring-no-properties (string &optional start end)
-    (let* ((start (or start 0))
-           (end (or end (length string)))
-           (string (substring string start end)))
-      (set-text-properties start end nil string)
-      string))
-    
-  (defun phw-derived-mode-p (&rest modes)
-    "Non-nil if the current major mode is derived from one of MODES.
-Uses the `derived-mode-parent' property of the symbol to trace backwards."
-    (let ((parent major-mode))
-      (while (and (not (memq parent modes))
-                  (setq parent (get parent 'derived-mode-parent))))
-      parent))
-  (defsubst phw-count-screen-lines (&optional beg end)
-    (let ((b (or beg (point-min)))
-          (e (or end (point-max))))
-      (count-lines b e)))
-  (defalias 'phw-frame-parameter 'frame-property)
-  (defalias 'phw-line-beginning-pos 'point-at-bol)
-  (defalias 'phw-bolp 'bolp)
-  (defalias 'phw-eolp 'eolp)
-  (defalias 'phw-bobp 'bobp)
-  (defalias 'phw-eobp 'eobp)
-  (defalias 'phw-line-end-pos 'point-at-eol)
-  (defalias 'phw-event-window 'event-window)
-  (defalias 'phw-event-point 'event-point)
-  (defalias 'phw-event-buffer 'event-buffer)
-  (defalias 'phw-window-full-width 'window-full-width)
-  (defalias 'phw-window-full-height 'window-height)
-  (defalias 'phw-window-display-height 'window-displayed-height)
-  (defun phw-frame-char-width (&optional frame)
-    (/ (frame-pixel-width frame) (frame-width frame)))
-  (defun phw-frame-char-height (&optional frame)
-    (/ (frame-pixel-height frame) (frame-height frame)))
-  (defun phw-window-edges (&optional window)
-    (let ((pix-edges (window-pixel-edges window)))
-      (list (/ (nth 0 pix-edges) (phw-frame-char-width))
-            (/ (nth 1 pix-edges) (phw-frame-char-height))
-            (/ (nth 2 pix-edges) (phw-frame-char-width))
-            (/ (nth 3 pix-edges) (phw-frame-char-height))))))
-
-(unless phw-running-xemacs
-  (defun phw-event-to-key (event)
-    (let ((type (event-basic-type event)))
-      (case type
-        ((mouse-1 mouse-2 mouse-3) 'mouse-release)
-        ((down-mouse-1 down-mouse-2 down-mouse-3) 'mouse-press)
-        (otherwise (event-basic-type event)))))
-  (defalias 'phw-facep 'facep)
-  (defun phw-noninteractive ()
-    "Return non-nil if running non-interactively, i.e. in batch mode."
-    noninteractive)
-  (defalias 'phw-subst-char-in-string 'subst-char-in-string)
-  (defalias 'phw-substring-no-properties 'substring-no-properties)
-  (defalias 'phw-derived-mode-p 'derived-mode-p)
-  (defsubst phw-count-screen-lines (&optional beg end)
-    (count-screen-lines beg end))
-  (defalias 'phw-frame-parameter 'frame-parameter)
-  (defalias 'phw-line-beginning-pos 'line-beginning-position)
-  (defalias 'phw-line-end-pos 'line-end-position)
-  (defalias 'phw-bolp 'bolp)
-  (defalias 'phw-eolp 'eolp)
-  (defalias 'phw-bobp 'bobp)
-  (defalias 'phw-eobp 'eobp)
-  (defun phw-event-window (event)
-    (posn-window (event-start event)))
-  (defun phw-event-point (event)
-    (posn-point (event-start event)))
-  (defun phw-event-buffer (event)
-    (window-buffer (phw-event-window event)))
-  (defun phw-window-full-width (&optional window)
-    (let ((edges (window-edges window)))
-      (- (nth 2 edges) (nth 0 edges))))
-  (defalias 'phw-window-display-height 'window-text-height)
-  (defalias 'phw-window-full-height 'window-height)
-  (defalias 'phw-frame-char-width 'frame-char-width)
-  (defalias 'phw-frame-char-height 'frame-char-height)
-  (defalias 'phw-window-edges 'window-edges))
-
-;; thing at point stuff
-
-(if (not phw-running-xemacs)
-    (progn
-      (require 'thingatpt)
-      (defalias 'phw-thing-at-point 'thing-at-point)
-      (defalias 'phw-end-of-thing 'end-of-thing)
-      (defalias 'phw-beginning-of-thing 'beginning-of-thing))
-  ;; Xemacs
-  (require 'thing)
-  (defun phw-thing-at-point (thing)
-    (let ((bounds (if (eq 'symbol thing)
-                      (thing-symbol (point))
-                    (thing-boundaries (point)))))
-      (buffer-substring (car bounds) (cdr bounds))))
-  (defun phw-end-of-thing (thing)
-    (goto-char (cdr (if (eq 'symbol thing)
-                        (thing-symbol (point))
-                      (thing-boundaries (point))))))
-  (defun phw-beginning-of-thing (thing)
-    (goto-char (car (if (eq 'symbol thing)
-                        (thing-symbol (point))
-                      (thing-boundaries (point)))))))
+(defun phw-event-to-key (event)
+  (let ((type (event-basic-type event)))
+    (case type
+      ((mouse-1 mouse-2 mouse-3) 'mouse-release)
+      ((down-mouse-1 down-mouse-2 down-mouse-3) 'mouse-press)
+      (otherwise (event-basic-type event)))))
+(defalias 'phw-facep 'facep)
+(defun phw-noninteractive ()
+  "Return non-nil if running non-interactively, i.e. in batch mode."
+  noninteractive)
+(defalias 'phw-subst-char-in-string 'subst-char-in-string)
+(defalias 'phw-substring-no-properties 'substring-no-properties)
+(defalias 'phw-derived-mode-p 'derived-mode-p)
+(defsubst phw-count-screen-lines (&optional beg end)
+  (count-screen-lines beg end))
+(defalias 'phw-frame-parameter 'frame-parameter)
+(defalias 'phw-line-beginning-pos 'line-beginning-position)
+(defalias 'phw-line-end-pos 'line-end-position)
+(defalias 'phw-bolp 'bolp)
+(defalias 'phw-eolp 'eolp)
+(defalias 'phw-bobp 'bobp)
+(defalias 'phw-eobp 'eobp)
+(defun phw-event-window (event)
+  (posn-window (event-start event)))
+(defun phw-event-point (event)
+  (posn-point (event-start event)))
+(defun phw-event-buffer (event)
+  (window-buffer (phw-event-window event)))
+(defun phw-window-full-width (&optional window)
+  (let ((edges (window-edges window)))
+    (- (nth 2 edges) (nth 0 edges))))
+(defalias 'phw-window-display-height 'window-text-height)
+(defalias 'phw-window-full-height 'window-height)
+(defalias 'phw-frame-char-width 'frame-char-width)
+(defalias 'phw-frame-char-height 'frame-char-height)
+(defalias 'phw-window-edges 'window-edges)
 
 ;; overlay- and extend-stuff
 
-(if (not phw-running-xemacs)
-    (progn
-      (defalias 'phw-make-overlay            'make-overlay)
-      (defalias 'phw-overlay-p               'overlayp)
-      (defalias 'phw-overlay-put             'overlay-put)
-      (defalias 'phw-overlay-get             'overlay-get)
-      (defalias 'phw-overlay-move            'move-overlay)
-      (defalias 'phw-overlay-delete          'delete-overlay)
-      (defalias 'phw-overlay-kill            'delete-overlay))
-  ;; XEmacs
-  (defalias 'phw-make-overlay            'make-extent)
-  (defalias 'phw-overlay-p               'extentp)
-  (defalias 'phw-overlay-put             'set-extent-property)
-  (defalias 'phw-overlay-get             'extent-property)
-  (defalias 'phw-overlay-move            'set-extent-endpoints)
-  (defalias 'phw-overlay-delete          'detach-extent)
-  (defalias 'phw-overlay-kill            'delete-extent))
+(progn
+  (defalias 'phw-make-overlay            'make-overlay)
+  (defalias 'phw-overlay-p               'overlayp)
+  (defalias 'phw-overlay-put             'overlay-put)
+  (defalias 'phw-overlay-get             'overlay-get)
+  (defalias 'phw-overlay-move            'move-overlay)
+  (defalias 'phw-overlay-delete          'delete-overlay)
+  (defalias 'phw-overlay-kill            'delete-overlay))
+;; XEmacs
+(defalias 'phw-make-overlay            'make-extent)
+(defalias 'phw-overlay-p               'extentp)
+(defalias 'phw-overlay-put             'set-extent-property)
+(defalias 'phw-overlay-get             'extent-property)
+(defalias 'phw-overlay-move            'set-extent-endpoints)
+(defalias 'phw-overlay-delete          'detach-extent)
+(defalias 'phw-overlay-kill            'delete-extent)
 
 ;; timer stuff
 
-(if (not phw-running-xemacs)
-    (progn
-      (defalias 'phw-run-with-timer 'run-with-timer)
-      (defalias 'phw-run-with-idle-timer 'run-with-idle-timer)
-      (defalias 'phw-cancel-timer 'cancel-timer))
-  ;; XEmacs
-  (defun phw-run-with-timer (secs repeat function &rest args)
-    (start-itimer "phw-timer" function secs repeat
-                  nil (if args t nil) args))
-  (defun phw-run-with-idle-timer (secs repeat function &rest args)
-    (start-itimer "phw-idle-timer"
-                  function secs (if repeat secs nil)
-                  t (if args t nil) args))
-  (defun phw-cancel-timer (timer)
-    (delete-itimer timer))
-  )
-
+(progn
+  (defalias 'phw-run-with-timer 'run-with-timer)
+  (defalias 'phw-run-with-idle-timer 'run-with-idle-timer)
+  (defalias 'phw-cancel-timer 'cancel-timer))
+;; XEmacs
+(defun phw-run-with-timer (secs repeat function &rest args)
+  (start-itimer "phw-timer" function secs repeat
+                nil (if args t nil) args))
+(defun phw-run-with-idle-timer (secs repeat function &rest args)
+  (start-itimer "phw-idle-timer"
+                function secs (if repeat secs nil)
+                t (if args t nil) args))
+(defun phw-cancel-timer (timer)
+  (delete-itimer timer))
 
 ;;; ----- Customize stuff ----------------------------------
 
@@ -829,295 +722,6 @@ the matching elem. If nil then the matching elem itself is returned."
                 (throw 'exit (funcall return-acc elem))))
           nil)))))
 
-;;; ----- Multicache ---------------------------------------
-
-;; internal functions
-(defsubst phw-multicache-init (cache-var)
-  "Initialize the phw-multicache of CACHE-VAR. If CACHE-VAR contains already
-a valid cache then nothing is done otherwise a new cache is created."
-  (or (phw-multicache-p cache-var)
-      (set cache-var (make-hash-table :size (get cache-var 'phw-multicache-size)
-                                      :test (get cache-var 'phw-multicache-test)))))
-
-(defun phw-multicache-add-empty-key (cache-var key)
-  "Checks if KEY is already cached in the cache of CACHE-VAR. If yes nothing
-is done otherwise a new cache-element with empty subcaches is added to the
-cache. All subcaches defined via `defphw-multicache' are created with a
-value nil. CACHE-VAR has to be a symbol for which an assoc cache has been
-defined with `defphw-multicache'!"
-  (phw-multicache-init cache-var)
-  (or (gethash key (symbol-value cache-var))
-      ;; now we add as value an assoc-list with an element for each registered
-      ;; subcache-element
-      (puthash key (mapcar (function (lambda (sc)
-                                       (cons sc nil)))
-                           (get cache-var
-                                'phw-multicache-subcache-list))
-               (symbol-value cache-var))))
-
-(defun phw-multicache-get-subcache (cache-var key subcache)
-  "Return that cons-cell which is associated with KEY in the cache of
-CACHE-VAR and which has the symbol SUBCACHE as its car. The cdr of this
-cons-cell is the currently stored SUBCACHE-value for KEY. If KEY is not cached
-then nil is returned."
-  (phw-multicache-init cache-var)
-  (let ((hash-val (gethash key (symbol-value cache-var))))
-    (and hash-val
-         (assoc subcache hash-val))))
-
-;; public interface for the multi-cache
-
-(defmacro defphw-multicache (name size test subcache docstring)
-  "Defines NAME as variable and makes it an phw-multicache.
-This means that for each cache-item of the cache NAME informations can be
-associated to different subcaches. SUBCACHE is either a symbol or a list of
-symbols. For each symbol in SUBCACHE a subcache is reserved in the cache NAME.
-
-Such a cache is especially senseful if different informations should be
-associated to one key.
-
-SIZE is a hint as to how many elements will be put in the cache. If SIZE is
-nil then the default is 100. If the cache exceeds SIZE it will be increased
-automatically.
-
-TEST must be a symbol that specifies how to compare keys. If TEST is nil then
-the default is `equal'.
-
-After defining the cache with this macro the cache can be used immediately\;
-there is no need for special initialization. The following functions are
-available for setting and accessing values in such a cache:
-
-  `phw-multicache-put-value'
-  `phw-multicache-apply-to-value'
-  `phw-multicache-get-value'
-  `phw-multicache-mapsubcache'
-  `phw-multicache-clear-value'
-  `phw-multicache-clear-subcache'
-  `phw-multicache-remove'
-  `phw-multicache-clear'
-  `phw-multicache-print-subcache'
-  `phw-multicache-p'
-
-The lookup in this multi-cache is really fast because the time required is
-essentially _independent_ of how many elements are stored in the cache."
-  `(progn
-     (eval-and-compile
-       (defvar ,name nil ,docstring))
-     (unless (get ',name 'phw-multicache-p)
-       (setq ,name nil)
-       (put ',name 'phw-multicache-subcache-list
-            (if (listp ,subcache)
-                ,subcache
-              (list ,subcache)))
-       (put ',name 'phw-multicache-p t)
-       (put ',name 'phw-multicache-size ,(or size 100))
-       (put ',name 'phw-multicache-test ,(or test (quote 'equal)))
-       )))
-(put 'defphw-multicache 'lisp-indent-function 4)
-
-;; (insert (pp (macroexpand '(defphw-multicache klaus nil 'equal '(A B C) "docstring"))))
-
-
-
-(defun phw-multicache-p (cache-var)
-  "Return not nil if the value of CACHE-VAR is a cache defined with
-`defphw-multicache'."
-  (and (hash-table-p (symbol-value cache-var))
-       (get cache-var 'phw-multicache-p)))
-
-(defun phw-multicache-get-value (cache-var key subcache)
-  "Return the currently associated value for KEY in the subcache SUBCACHE of
-the cache of CACHE-VAR. CACHE-VAR has to be a symbol for which an assoc cache
-has been defined with `defphw-multicache'!
-
-Be aware that the semantic of nil is not unique because nil can have the
-following meanings:
-- There is no cached item with KEY at all
-- There is an item with KEY in the cache but there is no assigned value for
-  SUBCACHE.
-- nil has been set as value for KEY and SUBCACHE \(via
-  `phw-multicache-put-value' or `phw-multicache-apply-to-value') - but this
-  is not recommended, see `phw-multicache-apply-to-value'."
-  (cdr (phw-multicache-get-subcache cache-var key subcache)))
-
-(defun phw-multicache-get-values (cache-var key &optional subcache-list)
-  "Return an assoc-list with the subcaches listed in SUBCACHE-LIST. If
-SUBCACHE-LIST is nil then all currently registered subcaches of CACHE-VAR are
-returned. The result is an assoc-list where each element is a cons-cell:
-- car: subcache-symbol.
-- cdr: The currenty cached value for the subcache in the car.
-
-So apply `assoc' and `cdr' to the result of this function.to get the value of
-a certain subcache.
-
-This function is useful when the values of more than one subcache for a key are
-needed at the same time, i.e. with one cache-lookup."
-  (phw-multicache-init cache-var)
-  (let ((cache-val (gethash key (symbol-value cache-var))))
-    (when cache-val
-      (if (null subcache-list)
-          cache-val
-        (mapcar (function (lambda (s)
-                            (assoc s cache-val)))
-                subcache-list)))))
-
-(defun phw-multicache-apply-to-value (cache-var key subcache apply-fcn
-                                                &optional only-if-key-exist)
-  "Apply the function APPLY-FCN to the old SUBCACHE-value of the cached item
-with key KEY. APPLY-FCN is called with the old SUBCACHE-value as argument and
-should return the new value which is then set as new SUBCACHE-value of the
-cached-item. If optional argument ONLY-IF-KEY-EXIST is not nil then nothing
-will be done if no cached item with key KEY exists. Otherwise a new item with
-KEY will be added to the cache and APPLY-FCN will be called with nil.
-CACHE-VAR has to be a symbol for which an assoc cache has been defined with
-`defphw-multicache'!
-
-With this function an already cached SUBCACHE-value for KEY can be evaluated
-and then modified with only one cache-lookup because APPLY-FCN gets the
-old-value as argument and has to return the new value which is then set as new
-SUBCACHE-value of the cached item. This is more efficient than a call-sequence
-of `phw-multicache-get-value' \(to get the old-value) and then
-`phw-multicache-put-value' to set a new value.
-
-It is recommended that APPLY-FCN doesn't return nil \(unless the SUBCACHE for
-KEY should be cleared within APPLY-FCN) because then this will be set as new
-value and then the returned value of next call to `phw-multicache-get-value'
-can have an ambiguous semantic - see documentation of
-`phw-multicache-get-value'. nil should be reserved to indicate that either no
-item with KEY is cached or that no value has been put for SUBCACHE."
-  (let ((subcache-conscell
-         (or (phw-multicache-get-subcache cache-var key subcache)
-             ;; key is currently not cached
-             (unless only-if-key-exist
-               (phw-multicache-add-empty-key cache-var key)
-               (phw-multicache-get-subcache cache-var key subcache)))))
-    (when subcache-conscell
-      (setcdr subcache-conscell
-              (funcall apply-fcn (cdr subcache-conscell))))))
-        
-(defun phw-multicache-put-value (cache-var key subcache value)
-  "Put VALUE as SUBCACHE-value of the cached item with key KEY. If there is
-already a value for this subcache and key then it will be replaced with VALUE.
-CACHE-VAR has to be a symbol for which an assoc cache has been defined with
-`defphw-multicache'!
-
-Return VALUE.
-
-It is recommended not to put nil as value - see
-`phw-multicache-apply-to-value' for an explanation. If the SUBCACHE for KEY
-should be cleared use `phw-multicache-clear-value'."
-  (phw-multicache-apply-to-value cache-var key subcache
-                                 (function (lambda (old-val)
-                                             value))))
-
-(defun phw-multicache-clear-value (cache-var key subcache)
-  "Put nil as value of the cached item with key KEY under the subcache
-SUBCACHE. This clears in fact the subcache SUBCACHE for a cached item with key
-KEY. CACHE-VAR has to be a symbol for which an assoc cache has been defined
-with `defphw-multicache'!"
-  (phw-multicache-put-value cache-var key subcache nil))
-
-(defun phw-multicache-remove (cache-var key)
-  "Remove the cache item with key KEY from the cache of CACHE-VAR. CACHE-VAR
-has to be a symbol for which an assoc cache has been defined with
-`defphw-multicache'!"
-  (phw-multicache-init cache-var)
-  (remhash key (symbol-value cache-var)))
-
-(defun phw-multicache-mapsubcache (cache-var subcache mapfcn)
-  "Iterate over all item of the cache of CACHE-VAR and call the function
-MAPFCN for each item for the subcache SUBCACHE. MAPFCN is called with two
-arguments, the key and the SUBCACHE-value of the currently processed
-cache-item. The SUBCACHE-value of this cache-item will be set to the
-return-value of MAPFCN. So if MAPFCN is not intended to change the
-SUBCACHE-value it should return the value of its second argument! CACHE-VAR
-has to be a symbol for which an assoc cache has been defined with
-`defphw-multicache'!"
-  (phw-multicache-init cache-var)
-  (maphash (function (lambda (key value)
-                       (let ((cache (assoc subcache value)))
-                         (and cache
-                              (setcdr cache
-                                      (funcall mapfcn
-                                               key (cdr cache)))))))
-           (symbol-value cache-var)))
-
-(defun phw-multicache-clear-subcache (cache-var subcache)
-  "Put nil as SUBCACHE-value for each cached item. This clears in fact the
-whole SUBCACHE. CACHE-VAR has to be a symbol for which an assoc cache has been
-defined with `defphw-multicache'!"
-  (phw-multicache-mapsubcache cache-var subcache
-                              (function (lambda (key value)
-                                          nil))))
-
-(defun phw-multicache-clear (cache-var)
-  "Clears the whole cache of CACHE-VAR, i.e. remove all items. CACHE-VAR has
-to be a symbol for which an assoc cache has been defined with
-`defphw-multicache'!"
-  (phw-multicache-init cache-var)
-  (clrhash (symbol-value cache-var)))
-
-(defun phw-multicache-print-subcache (cache-var subcache &optional no-nil-value)
-  "Print the contents of SUBCACHE of the cache of CACHE-VAR in another window
-in a special buffer. This is mostly for debugging the cache-contents.
-CACHE-VAR has to be a symbol for which an assoc cache has been defined with
-`defphw-multicache'!
-
-The output has the following form:
-
-Key: <the key of a cached element>
-     Value: <the associated value in the subcache SUBCACHE>
-Key: <the key of a cached element>
-     Value: <the associated value in the subcache SUBCACHE>
-...
-Key: <the key of a cached element>
-     Value: <the associated value in the subcache SUBCACHE>
-
-If NO-NIL-VALUE is not nil then Keys with a SUBCACHE-value nil will be
-excluded from the output."
-  (let ((dump-buffer-name (format "*phw-multicache - subcache: %s*"
-                                  subcache))
-        (key-str "Key:")
-        (value-str "Value:")
-        ;; Because XEmacs is not able to get a face-attributes-plist as value
-        ;; for the special property 'face we have to create two temporary
-        ;; faces here :-(
-	(key-face (copy-face 'default 'phw-multicache-print-key-face))
-	(value-str-face (copy-face 'italic
-                                   'phw-multicache-print-value-str-face)))
-    (set-face-foreground key-face "blue")
-    (set-face-foreground value-str-face "forest green")    
-    (put-text-property 0 (length key-str) 'face 'bold key-str)
-    (put-text-property 0 (length value-str) 'face value-str-face value-str)
-    (save-selected-window
-      (set-buffer (get-buffer-create dump-buffer-name))
-      (erase-buffer)
-      (phw-multicache-mapsubcache
-       cache-var subcache
-       (function (lambda (key value)
-                   ;; if key is a string we colorize it blue but we must du
-                   ;; this with a copy of key because otherwise we would
-                   ;; colorize the key-object itself which maybe is not what
-                   ;; we want if key is displayed somewhere else (e.g. in a
-                   ;; tree-buffer).
-                   (let ((key-cp (and (stringp key)
-                                      (concat key))))
-                     (and key-cp (put-text-property 0 (length key-cp)
-                                                    'face key-face key-cp))
-                     (unless (and no-nil-value (null value))
-                       (insert (concat key-str " "
-                                       (if key-cp
-                                           key-cp
-                                         (format "%s" key))
-                                       "\n     "
-                                       value-str " "
-                                       (format "%s" value)
-                                       "\n")))
-                     value))))
-      (switch-to-buffer-other-window (get-buffer-create dump-buffer-name))
-      (goto-char (point-min)))))
-  
-
 ;;; ----- User-interaction ---------------------------------
 
 (defun phw-confirm (text)
@@ -1398,16 +1002,15 @@ If `window-system' is nil then a simple message is displayed in the echo-area."
 useful if an error-message should be signaled to the user and evaluating
 should stopped but no debugging is senseful."
   (let ((debug-on-error nil))
-    (error (concat "PHW " phw-version " - Error: "
-                   (apply 'format args)))))
+    (error (concat "PHW - Error: " (apply 'format args)))))
 
 (defun phw-warning (&rest args)
   "Displays a warning."
-  (message (concat "PHW " phw-version " - Warning: " (apply 'format args))))
+  (message (concat "PHW - Warning: " (apply 'format args))))
 
 (defun phw-info-message (&rest args)
   "Displays an information."
-  (message (concat "PHW " phw-version " - Info: " (apply 'format args))))
+  (message (concat "PHW - Info: " (apply 'format args))))
 
 ;;; ----- Text and string-stuff ----------------------------
 
@@ -2352,8 +1955,7 @@ This will build up a message string like:
 PHW <version>: debug <ACTION> of '<CLASS>' advice ADVICE: ARGS.
 If ARGS is nil then only the message above is reported."
   (when phw-advices-debug-error
-    (message (concat (format "PHW %s: debug %s of '%s' advice %s "
-                             phw-version
+    (message (concat (format "PHW: debug %s of '%s' advice %s "
                              action
                              class
                              advice)
@@ -2463,8 +2065,7 @@ IMPORTANT: Do not use the function directly. Always use `phw-enable-advices',
   "Enable all advices of ADVICED-FUNCTION-SET-VAR, which must be defined by
 `defphw-advice-set'."
   (if phw-advices-debug-error
-      (message "PHW %s: debug enabling the advice-set: %s"
-               phw-version adviced-function-set-var))
+      (message "PHW: debug enabling the advice-set: %s" adviced-function-set-var))
   (if (eq adviced-function-set-var 'phw-always-disabled-advices)
       (error "The advice-set phw-always-disabled-advices must not be enabled!"))
   (if (not (assq adviced-function-set-var phw-adviced-function-sets))
@@ -2490,8 +2091,7 @@ the adviced will be treated as permanent and will not being disabled.
 If optional FORCE-PERMANENT is not nil then ADVICED-FUNCTION-SET-VAR will
 be disabled regardless if permanent or not."
   (if phw-advices-debug-error
-      (message "PHW %s: debug disabling the advice-set: %s"
-               phw-version adviced-function-set-var))
+      (message "PHW: debug disabling the advice-set: %s" adviced-function-set-var))
   (if (not (assq adviced-function-set-var phw-adviced-function-sets))
       (error "The adviced function set %s is not defined by defphw-advice-set!"
              (symbol-name adviced-function-set-var)))
@@ -2540,8 +2140,7 @@ Example where this macro is used for `walk-windows' within another advice:
                 (symbol-name ,function-symbol)
                 (symbol-name ,advice-class)))
        (if phw-advices-debug-error
-           (message "PHW %s: debug with always disabled phw-advice: %s %s - ENTRY"
-                    phw-version ,advice-class ,function-symbol))
+           (message "PHW: debug with always disabled phw-advice: %s %s - ENTRY" ,advice-class ,function-symbol))
        (unwind-protect
          (progn
            (when ,outmost-caller-p
@@ -2554,8 +2153,7 @@ Example where this macro is used for `walk-windows' within another advice:
                 (delete ,advice-class (get ,function-symbol 'phw-with-phw-advice)))
            (phw-enable-phw-advice ,function-symbol ,advice-class -1))
          (if phw-advices-debug-error
-             (message "PHW %s: debug with always disabled phw-advice: %s %s - EXIT"
-                      phw-version ,advice-class ,function-symbol))))))
+             (message "PHW: debug with always disabled phw-advice: %s %s - EXIT" ,advice-class ,function-symbol))))))
          
 (put 'phw-with-phw-advice 'lisp-indent-function 2)
 
@@ -2590,8 +2188,7 @@ Example:
               (setcdr (assq ,adviced-function-set-var phw-adviced-function-sets) 'outmost-caller))
             ))
        (if phw-advices-debug-error
-           (message "PHW %s: debug with original advice-set: %s - ENTRY"
-                    phw-version ,adviced-function-set-var))
+           (message "PHW: debug with original advice-set: %s - ENTRY" ,adviced-function-set-var))
        (unwind-protect
            (progn
              (when ,outmost-caller-p
@@ -2604,8 +2201,7 @@ Example:
            (setcdr (assq ,adviced-function-set-var phw-adviced-function-sets) nil)
            (phw-enable-advices ,adviced-function-set-var))
          (if phw-advices-debug-error
-             (message "PHW %s: debug with original advice-set: %s - EXIT"
-                      phw-version ,adviced-function-set-var))))))
+             (message "PHW: debug with original advice-set: %s - EXIT" ,adviced-function-set-var))))))
 
 
 (put 'phw-with-original-adviced-function-set 'lisp-indent-function 1)

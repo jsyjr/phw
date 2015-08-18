@@ -46,24 +46,18 @@
 (defcustom phw-compilation-buffer-names `(("*Calculator*" . nil)
                                           ("*vc*" . nil)
                                           ("*vc-diff*" . nil)
-                                          ,(if phw-running-xemacs
-                                               '("\\*Apropos.*\\*" . t)
-                                             '("*Apropos*" . nil))
+                                          ("\\*Apropos.*\\*" . t)
                                           ("*Occur*" . nil)
                                           ("*shell*" . nil)
                                           ("\\*[cC]ompilation.*\\*" . t)
                                           ("\\*i?grep.*\\*" . t)
                                           ("*JDEE Compile Server*" . nil)
-                                          ,(if phw-running-xemacs
-                                               '("\\*Help.*\\*" . t)
-                                              '("*Help*" . nil))
+                                          ("\\*Help.*\\*" . t)
                                           ("*Completions*" . nil)
                                           ("*Backtrace*" . nil)
                                           ("*Compile-log*" . nil)
                                           ("*bsh*" . nil)
-                                          (,(if phw-running-xemacs
-                                               " *Message-Log*"
-                                             "*Messages*") . nil))
+                                          ("*Messages*" . nil))
   "*Additional buffer names that should be displayed in the compile-window.
 Buffer names can either be defined as strings or as regexps. If the
 buffer-name of a buffer matches one of the defined string or regexp then it

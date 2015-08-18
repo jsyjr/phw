@@ -546,8 +546,6 @@ layout-types the fix-type 'width.
 For a detailed description of the valid values see documentation of
 `window-size-fixed' which is newly introduced in GNU Emacs 21 and is only
 available there. Therefore this option takes only effect with GNU Emacs >= 21.
-This option has no effect with XEmacs because it does not support the feature
-`window-size-fixed'.
 
 Note1: Manually resizing the PHW-windows via `enlarge-window',
 `shrink-window', `mouse-drag-vertical-line' and `mouse-drag-mode-line' is
@@ -599,14 +597,13 @@ of layout LAYOUT-NAME."
   "Set the buffer-local value of `window-size-fixed' in each visible
 phw-window to FIX. For Emacs < 22: If `phw-compile-window-height' is not nil
 then set always nil!"
-  (unless phw-running-xemacs
-    (let ((l (phw-canonical-phw-windows-list)))
-      (dolist (w l)
-        (with-current-buffer (window-buffer w)
-          (setq window-size-fixed (if (and (not phw-running-gnu-emacs-version-22)
-                                           phw-compile-window-height)
-                                      nil
-                                    fix)))))))
+  (let ((l (phw-canonical-phw-windows-list)))
+    (dolist (w l)
+      (with-current-buffer (window-buffer w)
+        (setq window-size-fixed (if (and (not phw-running-gnu-emacs-version-22)
+                                         phw-compile-window-height)
+                                    nil
+                                  fix))))))
 
 
 (defmacro phw-do-with-unfixed-phw-buffers (&rest body)
@@ -1147,7 +1144,7 @@ additionaly if a window is not dedicated."
 (defun phw-layout-debug-error (&rest args)
   "Run ARGS through `format' and write it to the *Messages*-buffer."
   (when (and phw-layout-debug-mode args)
-    (message (concat (format "PHW %s layout debug [%s] " phw-version
+    (message (concat (format "PHW layout debug [%s] "
                              (format-time-string "%H:%M:%S"))
                      (apply 'format args)))))
 
@@ -2221,17 +2218,6 @@ value of OTHER-EDIT-WINDOW \(which is a value returned by
        (phw-compile-window-live-p)
        (equal (selected-window) phw-compile-window)))
 
-(defun phw-point-in-phw-tree-buffer ()
-  "Return not nil if point is in any of the standard tree-buffers \(see
-function `phw-phw-buffer-registry-name-list') of PHW and if the
-current buffer is displayed in the currently selected window."
-  (when (and (equal (selected-frame) phw-frame)
-             (member (buffer-name (current-buffer))
-                     (phw-phw-buffer-registry-name-list 'only-tree-buffers))
-             (eq (selected-window) (get-buffer-window (current-buffer)
-                                                      phw-frame)))
-    (current-buffer)))
-
 ;; This function should not use any call to `phw-window-list' because XEmacs
 ;; has no builtin c-function but only an elisp one for this and therefore
 ;; using it within post-command-hook or pre-command-hook would dramatically
@@ -2661,25 +2647,13 @@ BUFFER-OR-NAME is contained or matches `special-display-buffer-names' or
                              buffer-or-name result)
      result))
 
-(if phw-running-xemacs
-    (defmacro phw-with-unsplittable-phw-frame (&rest body)
-      "Runs BODY with `phw-frame' temporally unsplittable."
-      `(unwind-protect
-           (progn
-             (set-frame-property phw-frame 'unsplittable t)
-             ,@body)
-         (set-frame-property phw-frame 'unsplittable nil)))
-    
-  (defmacro phw-with-unsplittable-phw-frame (&rest body)
-    "Runs BODY with `phw-frame' temporally unsplittable."
-    `(unwind-protect
-         (progn
-           (modify-frame-parameters phw-frame '((unsplittable . t)))
-           ,@body)
-       (modify-frame-parameters phw-frame '((unsplittable . nil)))))
-  )
-     
-
+(defmacro phw-with-unsplittable-phw-frame (&rest body)
+  "Runs BODY with `phw-frame' temporally unsplittable."
+  `(unwind-protect
+       (progn
+         (modify-frame-parameters phw-frame '((unsplittable . t)))
+         ,@body)
+     (modify-frame-parameters phw-frame '((unsplittable . nil)))))
 
 (defvar phw-layout-temporary-dedicated-windows nil
   "List of windows temporary made dedicated by PHW.
@@ -2825,13 +2799,7 @@ If called for other frames it works like the original version."
                            ;; dedicated) use exactly this window and there
                            ;; is no need to split it
                            (phw-with-unsplittable-phw-frame
-                            (if phw-running-xemacs
-                                ;; XEmacs does not shrink to fit if
-                                ;; `pop-up-windows' is nil so we must set it
-                                ;; here temporally to t
-                                (let ((pop-up-windows t))
-                                  ad-do-it)
-                              ad-do-it)))
+                            ad-do-it))
                        ;; making the edit-window(s) not dedicated
                        (mapc (function (lambda (w)
                                          (set-window-dedicated-p w nil)))
@@ -3544,9 +3512,7 @@ for compilation-buffers \(if a compile-window is used, see above)."
           ;; Don't let these interfere...
           same-window-buffer-names same-window-regexps)          
       (pop-to-buffer (ad-get-arg 0) t
-                     (if phw-running-xemacs
-                         (selected-frame)
-                       (ad-get-arg 1))))))
+                     (ad-get-arg 1)))))
 
 
 ;; Klaus Berndl <klaus.berndl@sdm.de>: We can not use pop-to-buffer here
@@ -4232,10 +4198,7 @@ phw-buffer-setting-function."
       ;; next window!
       (save-selected-window
         (select-window (phw-next-listelem edit-win-list window))
-        (enlarge-window (+ curr-edit-win-width
-                           (if phw-running-xemacs
-                               (if scrollbars-visible-p 3 1)
-                             0))
+        (enlarge-window (+ curr-edit-win-width 0)
                         t)))))
 
 (defalias 'phw-delete-window-phw-windows-left-right
@@ -4853,8 +4816,8 @@ window) is an phw-window! But only in this case the returned value is reliable!"
                              (nth 0 (phw-window-edges phw-win)))
                           'left-side
                         'right-side)))
-      (error "PHW %s: Serious window layout error for layout-type %s, phw-win:%s,first-rest-win:%s"
-             phw-version layout-type phw-win res-win))))
+      (error "PHW: Serious window layout error for layout-type %s, phw-win:%s,first-rest-win:%s"
+             layout-type phw-win res-win))))
 
 (defun phw-delete-phw-windows (side &optional residual-window except-phw-window-or-buffer)
   "Delete all phw-windows of SIDE.
@@ -4879,8 +4842,8 @@ it will be computed."
                      (left (not (eq side 'left-side)))
                      (top (not (eq side 'top-side)))))))
     (when err-p
-      (error "PHW %s: phw-delete-phw-window called with layout-type %s and SIDE: %s"
-             phw-version (phw-get-layout-type) side)))
+      (error "PHW: phw-delete-phw-window called with layout-type %s and SIDE: %s"
+             (phw-get-layout-type) side)))
   (let* ((phw-window-not-to-delete (and except-phw-window-or-buffer
                                         (typecase except-phw-window-or-buffer
                                           (window except-phw-window-or-buffer)
@@ -5586,8 +5549,7 @@ if no compile-window is visible."
         (save-excursion
           (save-selected-window
             (select-window phw-compile-window)
-            (setq number-of-lines (+ (if phw-running-xemacs 2 1) ; XEmacs hor. scrollb.
-                                     (count-lines (point-min) (point-max))))
+            (setq number-of-lines (+ 1 (count-lines (point-min) (point-max))))
             (phw-layout-debug-error "phw-toggle-compile-window-height: buffer: %s, lines: %d"
                                     (current-buffer) number-of-lines)
             (if should-shrink
@@ -5626,15 +5588,10 @@ if no compile-window is visible."
                           (max (min (floor (/ (1- (frame-height)) 2))
                                     (or (if (phw-derived-mode-p 'compilation-mode)
                                             compilation-window-height
-                                          (if phw-running-xemacs
-                                              (ignore-errors ; if temp-buffer-... is nil!
-                                                (phw-normalize-number
-                                                 temp-buffer-max-height
-                                                 (1- (frame-height))))
-                                            (if (functionp temp-buffer-max-height)
-                                                (funcall temp-buffer-max-height
-                                                         (current-buffer))
-                                              temp-buffer-max-height)))
+                                          (if (functionp temp-buffer-max-height)
+                                              (funcall temp-buffer-max-height
+                                                       (current-buffer))
+                                            temp-buffer-max-height))
                                         1000) ; 1000 is surely > then half of the frame
                                     number-of-lines)
                                phw-compile-window-height-lines))
@@ -5691,9 +5648,7 @@ Emacs)."
                    '(after-display both))
            (or (with-current-buffer (window-buffer phw-compile-window)
                  (equal major-mode 'compilation-mode))
-               (if phw-running-xemacs
-                   temp-buffer-shrink-to-fit
-                 temp-buffer-resize-mode)))
+               temp-buffer-resize-mode))
       (progn
         (phw-layout-debug-error "phw-set-compile-window-height: enlarge/fit")
         (phw-toggle-compile-window-height 1))

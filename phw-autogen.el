@@ -115,40 +115,26 @@ Run as `write-contents-hooks'."
 
 (defun phw-update-autoloads ()
   "Update phw autoloads from sources.
-Autoloads file name is defined in variable `phw-autogen-file'. If PHW is
-installed as regular XEmacs-package then this function reports an error and
-does nothing."
+Autoloads file name is defined in variable `phw-autogen-file'."
   (interactive)
-  (if phw-regular-xemacs-package-p
-      (phw-error "Updating autoloads not possible for regular XEmacs-packages!")
-    (if (file-exists-p (expand-file-name phw-autogen-file))
-        (delete-file (expand-file-name phw-autogen-file)))
-    (when (not phw-running-xemacs)
-      ;; generate a new one but do this not for XEmacs because XEmacs must(!)
-      ;; handle this itself
-      (with-temp-file (expand-file-name phw-autogen-file)
-        (insert "")))
-    (let* ((default-directory (file-name-directory (locate-library "phw")))
-           (generated-autoload-file (expand-file-name phw-autogen-file))
-           ;; needed for XEmacs to ensure that always a feature 'phw-autoloads
-           ;; is provided and not a feature like 'phw-1.91.2-autoloads (XEmacs
-           ;; uses the installation-directory of PHW as feature prefix if
-           ;; autoload-package-name is not provided.
-           (autoload-package-name "phw")
-           (subdirs (mapcar 'expand-file-name phw-autogen-subdirs))
-           (command-line-args-left (cons default-directory subdirs))
-           )
-      (phw-batch-update-autoloads))
-    ;; XEmacs adds autom. the provide statement but for GNU Emacs we must do
-    ;; this:
-    (when (not phw-running-xemacs)
-      (with-current-buffer (find-file-noselect (expand-file-name phw-autogen-file))
-        (goto-char (point-min))
-        (when (not (re-search-forward (format "^(provide '%s)"
-                                              phw-autoload-feature) nil t))
-          (goto-char (point-max))
-          (insert (format "\n(provide '%s)\n" phw-autoload-feature))
-          (save-buffer)
-          (kill-buffer (current-buffer)))))))
+  (if (file-exists-p (expand-file-name phw-autogen-file))
+      (delete-file (expand-file-name phw-autogen-file)))
+  (with-temp-file (expand-file-name phw-autogen-file)
+    (insert ""))
+  (let* ((default-directory (file-name-directory (locate-library "phw")))
+         (generated-autoload-file (expand-file-name phw-autogen-file))
+         (autoload-package-name "phw")
+         (subdirs (mapcar 'expand-file-name phw-autogen-subdirs))
+         (command-line-args-left (cons default-directory subdirs))
+         )
+    (phw-batch-update-autoloads))
+  (with-current-buffer (find-file-noselect (expand-file-name phw-autogen-file))
+    (goto-char (point-min))
+    (when (not (re-search-forward (format "^(provide '%s)"
+                                          phw-autoload-feature) nil t))
+      (goto-char (point-max))
+      (insert (format "\n(provide '%s)\n" phw-autoload-feature))
+      (save-buffer)
+      (kill-buffer (current-buffer)))))
 
 (provide 'phw-autogen)

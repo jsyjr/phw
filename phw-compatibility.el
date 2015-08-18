@@ -39,7 +39,6 @@
 ;; http://phw.sourceforge.net
 
 (require 'phw-util)
-(require 'phw-common-browser)
 (require 'phw-layout)
 
 ;; To add compatibilty code for packages just do:

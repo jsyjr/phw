@@ -92,6 +92,7 @@
 ;; rest of phw loads
 (require 'phw-layout)
 (require 'phw-compilation)
+(require 'phw-compatibility)
 (require 'phw-autogen)
 
 (eval-when-compile
@@ -382,18 +383,13 @@ always the PHW-frame if called from another frame."
   phw-minor-mode)
 
 
-(defvar phw-upgrade-check-done nil)
-
 (defun phw-clean-up-after-activation-failure (msg err)
   "Complete cleanup of all PHW-setups and report an error with message MSG."
   (let ((phw-minor-mode t))
     (phw-deactivate-internal t))
   (setq phw-minor-mode nil)
-  (if phw-running-xemacs
-      (phw-redraw-modeline t)
-    (force-mode-line-update t))
-  (error "PHW %s: %s (error-type: %S, error-data: %S)" phw-version msg
-         (car err) (cdr err)))
+  (force-mode-line-update t)
+  (error "PHW: %s (error-type: %S, error-data: %S)" msg (car err) (cdr err)))
 
 (defvar phw-last-window-config-before-deactivation nil
   "Contains the last `phw-current-window-configuration' directly before
@@ -473,9 +469,6 @@ otherwise remove it.  If PRE is non-null then the hooks are
           (phw-modify-emacs-variable 'max-specpdl-size 'store 3000))
         (when (< max-lisp-eval-depth 1000)
           (phw-modify-emacs-variable 'max-lisp-eval-depth 'store 1000))
-        (when (and phw-running-xemacs
-                   (boundp 'progress-feedback-use-echo-area))
-          (phw-modify-emacs-variable 'progress-feedback-use-echo-area 'store t))
 
         (condition-case err-obj
             (progn
@@ -585,57 +578,14 @@ otherwise remove it.  If PRE is non-null then the hooks are
           )
 
         (condition-case err-obj
-            (let ((edit-window (car (phw-canonical-edit-windows-list))))
-              (when (and phw-display-default-dir-after-start
-                         (null (phw-buffer-file-name
-                                (window-buffer edit-window))))
-                (phw-set-selected-directory
-                 (phw-fix-filename (with-current-buffer (window-buffer edit-window)
-                                     default-directory)))))
-          (error
-           (phw-clean-up-after-activation-failure
-            "Errors during setting the default directory." err-obj)))
-
-        (condition-case err-obj
             ;; we run any personal hooks
             (run-hooks 'phw-activate-hook)
           (error
            (phw-clean-up-after-activation-failure
             "Errors during the hooks of phw-activate-hook." err-obj)))
 
-        (condition-case err-obj
-            ;; enable mouse-tracking for the phw-tree-buffers; we do this after
-            ;; running the personal hooks because if a user putﾴs activation of
-            ;; follow-mouse.el (`turn-on-follow-mouse') in the
-            ;; `phw-activate-hook' then our own PHW mouse-tracking must be
-            ;; activated later. If `turn-on-follow-mouse' would be activated
-            ;; after our own follow-mouse stuff, it would overwrite our
-            ;; mechanism and the show-node-name stuff would not work!
-            (if (phw-show-any-node-info-by-mouse-moving-p)
-                (tree-buffer-activate-follow-mouse))
-          (error
-           (phw-clean-up-after-activation-failure
-            "Errors during the mouse-tracking activation." err-obj)))
-
         (setq phw-minor-mode t)
         (message "The PHW is now activated.")
-
-        (condition-case err-obj
-            ;; now we display all `phw-not-compatible-options' and
-            ;; `phw-renamed-options'
-            (if (and phw-auto-compatibility-check
-                     (or (phw-not-compatible-or-renamed-options-detected)
-                         (not (phw-options-version=phw-version-p))))
-                ;; we must run this with an idle-times because otherwise these
-                ;; options are never displayed when Emacs is started with a
-                ;; file-argument and PHW is automatically activated. I this
-                ;; case the buffer of the file-argument would be displayed
-                ;; after the option-display and would so hide this buffer.
-                (phw-run-with-idle-timer 0.25 nil 'phw-display-upgraded-options)
-              (phw-display-news-for-upgrade))
-          (error
-           (phw-clean-up-after-activation-failure
-            "Error during the compatibility-check of PHW." err-obj)))
 
         ;; if we activate PHW first time then we display the node "First steps" of
         ;; the online-manual
@@ -644,10 +594,6 @@ otherwise remove it.  If PRE is non-null then the hooks are
             (let ((phw-show-help-format 'info))
               (phw-show-help)
               (Info-goto-node "First steps"))))
-
-        ;; display tip of the day if `phw-tip-of-the-day' is not nil
-        (ignore-errors
-          (phw-show-tip-of-the-day))
 
         (phw-enable-advices 'phw-layout-basic-adviced-functions)
 
@@ -661,6 +607,7 @@ otherwise remove it.  If PRE is non-null then the hooks are
         ))))
 
 
+;;;###autoload
 (defun phw-deactivate ()
   "Deactivates the PHW and kills all PHW buffers and windows."
   (interactive)
@@ -771,14 +718,6 @@ otherwise remove it.  If PRE is non-null then the hooks are
         (phw-disable-advices 'phw-permanent-adviced-layout-functions t)
         (phw-edit-area-creators-init))
 
-      ;; we can safely do the kills because killing non existing buffers
-      ;; doesnﾴt matter. We kill these buffers because some customize-options
-      ;; takes only effect when deactivating/reactivating PHW, or to be more
-      ;; precise when creating the tree-buffers again.
-      (dolist (tb-elem (phw-phw-buffer-registry-name-list 'only-tree-buffers))
-        (tree-buffer-destroy tb-elem))
-      (phw-phw-buffer-registry-init)
-
       (setq phw-activated-window-configuration nil)
 
       (setq phw-minor-mode nil)
@@ -786,10 +725,7 @@ otherwise remove it.  If PRE is non-null then the hooks are
       ;; restoring the value of temporary modified vars
       (phw-modify-emacs-variable 'max-specpdl-size 'restore)
       (phw-modify-emacs-variable 'max-lisp-eval-depth 'restore)
-      (when (and phw-running-xemacs
-                 (boundp 'progress-feedback-use-echo-area))
-        (phw-modify-emacs-variable 'progress-feedback-use-echo-area 'restore))))
-
+      ))
 
   (if (null phw-minor-mode)
       (message "The PHW is now deactivated."))
@@ -810,9 +746,7 @@ if the minor mode is enabled.
         (phw-activate-internal)
       (phw-deactivate-internal)))
 
-  (if phw-running-xemacs
-      (phw-redraw-modeline t)
-    (force-mode-line-update t))
+  (force-mode-line-update t)
 
   phw-minor-mode)
 
