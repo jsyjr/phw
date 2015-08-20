@@ -690,19 +690,6 @@ according to the rules above."
               (throw 'exit (funcall return-acc elem)))
           nil)))))
 
-;; tests
-
-;; (phw-member-of-symbol/value-list phw-directories-buffer-name
-;;                                  phw-tree-do-not-leave-window-after-select--internal)
-
-;; (phw-member-of-symbol/value-list phw-directories-buffer-name
-;;                                  (cdr '("adgasgd" .
-;;                                         ((phw-directories-buffer-name . "dir")
-;;                                          (phw-sources-buffer-name . "sou")
-;;                                          (phw-history-buffer-name . "hist"))))
-;;                                  'car
-;;                                  'cdr)
-
 ;;; ----- Some regexp stuff  -------------------------------
 
 (defsubst phw-match-regexp-list (str regexp-list &optional elem-accessor

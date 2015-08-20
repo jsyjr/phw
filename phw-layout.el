@@ -128,11 +128,11 @@
 
 (defconst phw-layout-option-set-function
   (function (lambda (symbol value)
-	      (set symbol value)
+              (set symbol value)
              ;; we must check this because otherwise the layout would be drawn
-	      ;; if we have changed the initial value regardless if PHW is
-	      ;; activated or not.
-	      (when (and (boundp 'phw-minor-mode)
+              ;; if we have changed the initial value regardless if PHW is
+              ;; activated or not.
+              (when (and (boundp 'phw-minor-mode)
                          phw-minor-mode
                          (frame-live-p phw-frame))
                 (let ((curr-frame (selected-frame)))
@@ -141,7 +141,7 @@
                         (select-frame phw-frame)
                         (phw-redraw-layout-full))
                     (select-frame curr-frame)))))))
-                    
+
 
 (defconst phw-select-edit-window-on-redraw nil
   "*Select the first edit window on `phw-redraw-layout'.")
@@ -593,42 +593,6 @@ of layout LAYOUT-NAME."
         phw-fix-window-size)
     (cdr (assoc layout-name phw-fix-window-size))))
 
-(defun phw-set-window-size-fixed (fix)
-  "Set the buffer-local value of `window-size-fixed' in each visible
-phw-window to FIX. For Emacs < 22: If `phw-compile-window-height' is not nil
-then set always nil!"
-  (let ((l (phw-canonical-phw-windows-list)))
-    (dolist (w l)
-      (with-current-buffer (window-buffer w)
-        (setq window-size-fixed (if (and (not phw-running-gnu-emacs-version-22)
-                                         phw-compile-window-height)
-                                    nil
-                                  fix))))))
-
-
-(defmacro phw-do-with-unfixed-phw-buffers (&rest body)
-  "Evaluate BODY with unfixed size of all current-visible phw-buffers and
-ensure that at the end \(either after finishing of BODY or after an error
-occurs during BODY) all now current visible phw-buffers get the value of their
-buffer-local `window-size-fixed' from the setting in `phw-fix-window-size'."
-  `(unwind-protect
-       (progn
-         (phw-set-window-size-fixed nil)
-         ,@body)
-     (phw-set-window-size-fixed (phw-get-window-fix-type phw-layout-name))))
-
-(defmacro phw-do-with-fixed-phw-buffers (&rest body)
-  "Evaluate BODY with fixed size of all current-visible phw-buffers and
-ensure that at the end \(either after finishing of BODY or after an error
-occurs during BODY) all now current visible phw-buffers get the value of their
-buffer-local `window-size-fixed' from the setting in `phw-fix-window-size'."
-  `(unwind-protect
-       (progn
-         (phw-set-window-size-fixed t)
-         ,@body)
-     (phw-set-window-size-fixed (phw-get-window-fix-type phw-layout-name))))
-
-
 
 (defcustom phw-other-window-behavior 'smart
   "*The behavior of PHW concerning getting an \"other window\".
@@ -1065,25 +1029,6 @@ command. If not nil it contains the buffer-name of this special phw-buffer.")
   "If not nil PHW will ignore in the post-command-hook auto. maximizing.")
 
 
-(defun phw-canonical-phw-windows-list (&optional winlist)
-  "Return a list of all visible PHW-windows.
-
-Such a window must be dedicated to its phw-buffer and defined for
-the related buffer with `defphw-window-dedicator-to-phw-buffer'. The list
-starts from the left-most top-most window in the order
-`other-window' would walk through these windows."
-  (let ((windows-list (or winlist (phw-canonical-windows-list)))
-        (registered-phw-buffers (phw-dedicated-special-buffers))
-        )
-    (delq nil (mapcar (function (lambda (elem)
-                                  (if (and (not (memq elem
-                                                      phw-layout-temporary-dedicated-windows))
-                                           (window-dedicated-p elem)
-                                           (memq (window-buffer elem) registered-phw-buffers)
-                                           )
-                                      elem)))
-                      windows-list))))
-
 (defun phw-canonical-edit-windows-list (&optional winlist)
   "Return a list of all current edit-windows \(starting from the left-most
 top-most window) in the order `other-window' would walk through these windows.
@@ -1187,8 +1132,8 @@ either not activated or it behaves exactly like the original version!"
     (if (and phw-minor-mode
              (equal frame phw-frame))
         (when (phw-confirm "Attempt to delete the PHW-frame. PHW will be deactivated! Proceed? ")
-	  (phw-deactivate-internal) ;; deletes also the phw-frame if not the only frame
-	  ad-do-it)
+          (phw-deactivate-internal) ;; deletes also the phw-frame if not the only frame
+          ad-do-it)
       ad-do-it)))
 
 (require 'compile)
@@ -1289,7 +1234,7 @@ details which window will be scrolled."
 ;;         (sit-for 0)
 ;;         (ignore-errors (phw-set-phw-window-sizes phw-sizes-before)))
 ;;     ad-do-it))
-      
+
 ;; (defadvice find-file-other-window (around phw)
 ;;   "Workaround for the annoying \(X)Emacs-behavior to resize some of the
 ;; special phw-windows after opening a file. This advices restores the sizes of
@@ -1319,9 +1264,9 @@ the scroll-behavior of `scroll-other-window' see the advice documentation of
             (>= (prefix-numeric-value arg) 0)))
     (message "Scrolling the other-window scrolls compile-window is now %s."
              (if phw-scroll-other-window-scrolls-compile-window "ON" "OFF"))))
-      
 
-  
+
+
 (defun phw-edit-window-splitted (&optional edit-windows-list)
   "Returns either nil if the PHW edit-window is not splitted or 'vertical or
 'horizontal when splitted in two windows \(depending on the splitting) or
@@ -1346,100 +1291,15 @@ edit-window-list is computed via `phw-canonical-edit-windows-list'."
 arguments. Do never set this variable; it is only set by
 `show-temp-buffer-in-current-frame'!")
 
-(when-phw-running-xemacs
- ;; We advice this function to exactly that version of XEmacs 21.4.13.
- ;; For that XEmacs-version (and higher) this would not be necessary but
- ;; we need this advice for versions of XEmacs which do not have the
- ;; 4-argument-version of `display-buffer'. With this advice we give
- ;; older XEmacsen the newest display-buffer- and
- ;; shrink-to-fit-mechanism. How this is done is described at beginning
- ;; of `phw-display-buffer-xemacs'.
+ ;; end of if-phw-running-xemacs
 
- ;; TODO: Klaus Berndl <klaus.berndl@sdm.de>: XEmacs crashes in the following
- ;; scenario:
- ;; 1. acticate PHW
- ;; 2. open a file
- ;; 3. no compile-window active
- ;; 4. set temp-buffer-shrink-to-fit to t
- ;; 5. Split edit-window vertically
- ;; 6. call from the above window help (e.g. for function insert)
- ;; 7. insert help is displayed in the bottom window with shrinked window,
- ;;    point stay in the help-window
- ;; 8. press q --> the previous window-layout is restored (both window equally
- ;;    high); point stays in the top-window.
- ;; 9. now call C-x 1 (delete-other-windows) --> XEmacs crashes
- ;; It crashes not if temp-buffer-shrink-to-fit is nil (see step 4 above)
- ;; Solution: seems that with current shrink-window-if-larger-than-buffer
- ;; (s.b.) the crash has been gone.......
- 
- (defphw-advice shrink-window-if-larger-than-buffer around phw-layout-basic-adviced-functions
-   "Makes the function compatible with PHW."
-   (or (ad-get-arg 0) (ad-set-arg 0 (selected-window)))
-   (phw-layout-debug-error "shrink-window-if-larger-than-buffer: window: %s"
-                           (ad-get-arg 0))
-   (if (or (not phw-minor-mode)
-           (not (equal (window-frame (ad-get-arg 0)) phw-frame))
-           (member (ad-get-arg 0) (phw-canonical-phw-windows-list)))
-       (phw-with-original-basic-functions
-        ad-do-it)
+(defun phw-canonical-phw-windows-list (&optional winlist)
+  "Return a list of all visible PHW-windows."
+  nil)
 
-     ;; now:
-     ;; - the window to shrink is in the phw-frame
-     ;; - this window is not a special phw-window
-
-     ;; we handle only the edit-windows and the compile-window of the
-     ;; phw-frame in a special manner.
-
-     ;; if called non-interactively (e.g. by `display-buffer's forth
-     ;; argument SHRINK-TO-FIT) and if called for the compile-window of
-     ;; PHW and if `phw-compile-window-temporally-enlarge' is either
-     ;; after-selection or nil then we shrink to the
-     ;; phw-compile-window-height! Otherwise we run the normal job!
-     (if (and (not (phw-interactive-p))
-              (equal (ad-get-arg 0) phw-compile-window)
-              (member phw-compile-window-temporally-enlarge
-                      '(after-selection nil))
-              ;; The *Completions*-buffer must always being enlarged!
-              (not (phw-string= (buffer-name (window-buffer (ad-get-arg 0)))
-                                "*Completions*")))
-         (phw-toggle-compile-window-height -1)
-       (save-excursion
-         (set-buffer (window-buffer (ad-get-arg 0)))
-         (phw-layout-debug-error "shrink-window-if-larger-than-buffer: buffer to shrink: %s"
-                                 (current-buffer))
-         ;; we prevent to shrink the compile-window below
-         ;; `phw-compile-window-height'
-         (let ((window-min-height (if (and (equal (ad-get-arg 0) phw-compile-window)
-                                           (and phw-compile-window-prevent-shrink-below-height
-                                                (not (phw-interactive-p)))
-                                           window-min-height
-                                           phw-compile-window-height-lines
-                                           (< window-min-height
-                                              phw-compile-window-height-lines))
-                                      phw-compile-window-height-lines
-                                    window-min-height))
-               (mini (frame-property (window-frame (ad-get-arg 0)) 'minibuffer)))
-           (when (and (let ((frame (selected-frame)))
-                        (select-frame (window-frame (ad-get-arg 0)))
-                        (unwind-protect
-                            (not (one-window-p t))
-                          (select-frame frame)))
-                      (phw-window-safely-shrinkable-p (ad-get-arg 0))
-                      (pos-visible-in-window-p (point-min) (ad-get-arg 0))
-                      (not (eq mini 'only)))
-             (phw-fit-window-to-buffer (ad-get-arg 0)
-                                       (phw-window-full-height (ad-get-arg 0)))))))))
-      
- (defphw-advice pop-to-buffer around phw-layout-basic-adviced-functions
-   "Chooses the window with the PHW-adviced version of `display-buffer'."
-   ad-do-it
-   (when (and (equal (selected-frame) phw-frame)
-              (phw-point-in-compile-window))
-     ;; we set the height of the compile-window according to
-     ;; `phw-enlarged-compilation-window-max-height'
-     (phw-set-compile-window-height)))
-      
- ) ;; end of if-phw-running-xemacs
+(defun phw-get-current-visible-phw-buffers ()
+  ""
+  nil)
 
 (when-phw-running-emacs
  ;; only GNU Emacs basic advices
@@ -1450,43 +1310,7 @@ for current layout."
             (equal (selected-frame) phw-frame)
             (not (phw-windows-all-hidden))
             (phw-get-window-fix-type phw-layout-name))
-       (phw-do-with-unfixed-phw-buffers ad-do-it)
-     ad-do-it))
-
-
- (defphw-advice mouse-drag-mode-line around phw-layout-basic-adviced-functions
-   "Allows manually window-resizing even if `phw-fix-window-size' is not nil
-for current layout."
-   (if (and phw-minor-mode
-            (equal (selected-frame) phw-frame)
-            (not (phw-windows-all-hidden))
-            (phw-get-window-fix-type phw-layout-name)
-            (member (car (car (cdr (ad-get-arg 0)))) ;; the window of the event
-                    (phw-canonical-phw-windows-list)))
-       (phw-do-with-unfixed-phw-buffers ad-do-it)
-     ad-do-it))
-
- (defphw-advice enlarge-window around phw-layout-basic-adviced-functions
-   "Allows manually window-resizing even if `phw-fix-window-size' is not nil
-for current layout."
-   (if (and phw-minor-mode
-            (equal (selected-frame) phw-frame)
-            (not (phw-windows-all-hidden))
-            (phw-get-window-fix-type phw-layout-name)
-            (member (selected-window) (phw-canonical-phw-windows-list)))
-       (phw-do-with-unfixed-phw-buffers ad-do-it)
-     ad-do-it))
-
- (defphw-advice shrink-window around phw-layout-basic-adviced-functions
-   "Allows manually window-resizing even if `phw-fix-window-size' is not nil
-for current layout."
-   (if (and phw-minor-mode
-            (equal (selected-frame) phw-frame)
-            (not (phw-windows-all-hidden))
-            ;; See comment of defphw-advice for mouse-drag-mode-line
-            (phw-get-window-fix-type phw-layout-name)
-            (member (selected-window) (phw-canonical-phw-windows-list)))
-       (phw-do-with-unfixed-phw-buffers ad-do-it)
+       ad-do-it
      ad-do-it))
 
  (defphw-advice shrink-window-if-larger-than-buffer around phw-layout-basic-adviced-functions
@@ -1579,7 +1403,7 @@ for current layout."
             (if (functionp temp-buffer-max-height)
                 (funcall temp-buffer-max-height (current-buffer))
               temp-buffer-max-height)))))))
- 
+
  (defphw-advice pop-to-buffer around phw-layout-basic-adviced-functions
    "Chooses the window with the PHW-adviced version of `display-buffer'."
    (if (or (not phw-minor-mode)
@@ -1610,7 +1434,7 @@ for current layout."
        ;; we set the height of the compile-window according to
        ;; `phw-enlarged-compilation-window-max-height'
        (phw-set-compile-window-height)))))
-  
+
 
 ;; Klaus Berndl <klaus.berndl@sdm.de>: Fixes a bug with ths
 ;; shrink-to-fit stuff: (set-window-buffer ...) has to be called BEFORE
@@ -1688,7 +1512,7 @@ Returns the window displaying BUFFER."
              ;; these functions probably don't too. Therefore in case of this
              ;; error we call these functions again with only the first three
              ;; arguments.
-             
+
              (setq explicit-frame
                    (if pre-display-buffer-function
                        (condition-case oops
@@ -1889,7 +1713,7 @@ Returns the window displaying BUFFER."
                                      (window-rightmost-p window))))
                        (setq window (split-window window))
                      (let (upper
-                           ;;			   lower
+                           ;;                      lower
                            other)
                        (setq window (get-lru-window target-frame))
                        ;; If the LRU window is selected, and big enough,
@@ -1920,11 +1744,11 @@ Returns the window displaying BUFFER."
                        ;; even out their heights.
                        (if (window-previous-child window)
                            (setq other (window-previous-child window)
-                                 ;;				 lower window
+                                 ;;                              lower window
                                  upper other))
                        (if (window-next-child window)
                            (setq other (window-next-child window)
-                                 ;;				 lower other
+                                 ;;                              lower other
                                  upper window))
                        ;; Check that OTHER and WINDOW are vertically arrayed.
                        (if (and other
@@ -1964,7 +1788,7 @@ Returns the window displaying BUFFER."
              ;; shrink-to-fit if necessary
              (if shrink-it
                  (shrink-window-if-larger-than-buffer window))
-                   
+
              (display-buffer-1 window)))))
     (or (equal wconfig (current-window-configuration))
         (push-window-configuration wconfig))
@@ -2168,13 +1992,6 @@ WIN-NR must be an integer between 1 and length of WIN-LIST \(rsp.
 `phw-canonical-windows-list')."
   (nth (1- win-nr) (or win-list (phw-canonical-windows-list))))
 
-(defun phw-get-phw-window-by-number (phw-win-nr &optional phw-win-list)
-  "Return that phw-window with number PHW-WIN-NR. If PHW-WIN-LIST is set
-then get it from that list otherwise from `phw-canonical-phw-windows-list'.
-PHW-WIN-NR must be an integer between 1 and length of PHW-WIN-LIST \(rsp.
-`phw-canonical-phw-windows-list')."
-  (nth (1- phw-win-nr) (or phw-win-list (phw-canonical-phw-windows-list))))
-
 (defun phw-combine-phw-button/edit-win-nr (phw-button edit-window-nr)
   "Depending on PHW-BUTTON and EDIT-WINDOW-NR return one value:
 - nil if PHW-BUTTON is 1.
@@ -2200,16 +2017,12 @@ value of OTHER-EDIT-WINDOW \(which is a value returned by
   (let ((edit-win-list (phw-canonical-edit-windows-list)))
     (typecase other-edit-window
       (null
-       (if (eq phw-mouse-click-destination 'left-top)
-           (car edit-win-list)
-         phw-last-edit-window-with-point))
+       phw-last-edit-window-with-point)
       (integer
        (phw-get-edit-window-by-number other-edit-window edit-win-list))
       (otherwise
        (phw-next-listelem edit-win-list
-                          (if (eq phw-mouse-click-destination 'left-top)
-                              (car edit-win-list)
-                            phw-last-edit-window-with-point))))))
+                          phw-last-edit-window-with-point)))))
 
 
 (defun phw-point-in-compile-window ()
@@ -2218,20 +2031,6 @@ value of OTHER-EDIT-WINDOW \(which is a value returned by
        (phw-compile-window-live-p)
        (equal (selected-window) phw-compile-window)))
 
-;; This function should not use any call to `phw-window-list' because XEmacs
-;; has no builtin c-function but only an elisp one for this and therefore
-;; using it within post-command-hook or pre-command-hook would dramatically
-;; slow down XEmacs.
-(defun phw-point-in-dedicated-special-buffer ()
-  "Return not nil if point is in any of the special dedicated buffers which
-are registrated via the macro `defphw-window-dedicator-to-phw-buffer' \(see
-`phw-dedicated-special-buffers') and if the current buffer is displayed in the
-currently selected window."
-  (when (equal (selected-frame) phw-frame)
-    (if (and (member (current-buffer) (phw-dedicated-special-buffers))
-             (eq (selected-window) (get-buffer-window (current-buffer) phw-frame)))
-        (current-buffer))))
-          
 (defun phw-buffer-is-dedicated-special-buffer-p (buffer-or-name)
   "Return not nil if BUFFER-OR-NAME is a member of
 `phw-dedicated-special-buffers'. BUFFER-OR-NAME ca be either a
@@ -2271,8 +2070,7 @@ same as if `phw-mouse-click-destination' is set to 'last-point."
   (when phw-minor-mode
     (raise-frame phw-frame)
     (select-frame phw-frame)
-    (let ((phw-mouse-click-destination 'last-point))
-      (phw-select-edit-window))))
+    (phw-select-edit-window)))
 
 (defun phw-goto-window-edit1 ()
   "Make the \(first) edit-window window the current window."
@@ -2312,30 +2110,6 @@ destinations are immediately shown in a completion-buffer."
   (interactive "P")
   (phw-goto-window-by-smart-selection--internal
    (phw-canonical-edit-windows-list)
-   use-immediate-completion))
-
-(defun phw-goto-window-phw-by-smart-selection (&optional use-immediate-completion)
-  "Selects a special phw-browsing-window by smart selection.
-The command offers a list of all special phw-windows by buffer-name. Selecting
-the buffer-name will select the displaying window. Which special phw-windows
-are offered depends on the currently selected window: If not a special
-phw-window is the currently selected-window then all edit-windows are offered
-in canonical order \(means from top-left to button-right). If an phw-window is
-the currently selected-window then all other\(!) special phw-windows are
-offered, beginning with the next special phw-window to the current phw-window
-\(the following special phw-windows also in canonical order). If there is only
-one senseful destination-phw-window then this window is immediately selected,
-without confirmation \(e.g.: There are two special phw-windows and point stays
-in one of them. Or there is only one phw-window and point stays either in one
-of the edit-windows or in the compile-window).
-
-If optional argument USE-IMMEDIATE-COMPLETION is nil then all possible
-destination-windows are displayed in the message-area and only hitting TAB
-offers completion. If USE-IMMEDIATE-COMPLETION is not nil then all possible
-destinations are immediately shown in a completion-buffer."
-  (interactive "P")
-  (phw-goto-window-by-smart-selection--internal
-   (phw-canonical-phw-windows-list)
    use-immediate-completion))
 
 (defun phw-goto-window-by-smart-selection--internal (win-list &optional use-immediate-completion)
@@ -2421,8 +2195,7 @@ the second edit-window if there is more than 1. If EDIT-WINDOW-NUMBER is nil
 then select the edit-window according to the value of the option
 `phw-mouse-click-destination'. If point already stays in the right edit-window
 nothing is done."
-  (if (and (null edit-window-number)
-           (equal phw-mouse-click-destination 'last-point))
+  (if (null edit-window-number)
       (condition-case nil
           (select-window phw-last-edit-window-with-point)
         (error (phw-select-edit-window 1)))
@@ -2602,7 +2375,7 @@ BUFFER-OR-NAME is contained or matches `special-display-buffer-names' or
                  (if (member buf-name
                              special-display-buffer-names)
                      (throw 'done t))
-      
+
                  (let ((tem (assoc buf-name
                                    special-display-buffer-names)))
                    (if tem
@@ -2622,7 +2395,7 @@ BUFFER-OR-NAME is contained or matches `special-display-buffer-names' or
     (phw-layout-debug-error "phw-check-for-special-buffer for %s: %s"
                             buffer-or-name result)
     result))
-    
+
 (defun phw-check-for-same-window-buffer (buffer-or-name)
   "Return not nil if BUFFER-OR-NAME is contained or matches
 `same-window-buffer-names' or `same-window-regexps'."
@@ -2676,7 +2449,7 @@ So never a dedicated window is returned during activated PHW."
         (ad-get-arg 1)
         ;; we forbid dedicated windows
         (ad-set-arg 1 nil)))
-      
+
 
  (defphw-advice get-lru-window before phw-layout-basic-adviced-functions
    "When called from within the `phw-frame' then DEDICATED is always set to nil.
@@ -2833,14 +2606,14 @@ If called for other frames it works like the original version."
                              ;; Klaus Berndl <klaus.berndl@sdm.de>: If this
                              ;; makes trouble we remove it.
                              (phw-toggle-compile-window-height -1)))
-                       
+
                        (if (member phw-compile-window-temporally-enlarge
                                    '(after-selection both))
                            (setq phw-layout-prevent-handle-compile-window-selection t)))
                      ) ;; end of let...
 
                  ;; OK, we have really no compile-window...
-               
+
                  ;; needed for TAB-completion if this offers the completions in
                  ;; a temp-buffer. Without this manually split the whole
                  ;; edit-window would be used for the completions which is not
@@ -2850,7 +2623,7 @@ If called for other frames it works like the original version."
                                         pop-up-frames)))
                    ;; emacs 23 splits automatically when window-size allows
                    ;; this (see split-width-threshold and
-                   ;; split-height-threshold)... 
+                   ;; split-height-threshold)...
                    (when (and (not phw-running-gnu-emacs-version-23)
                               (not (phw-windows-all-hidden))
                               (not (phw-layout-top-p))
@@ -2864,7 +2637,7 @@ If called for other frames it works like the original version."
                    ;; Here the values of temp-buffer-max-height and
                    ;; compilation-window-height take effect.
                    ad-do-it)))
-            
+
               ((not (phw-buffer-is-dedicated-special-buffer-p (ad-get-arg 0)))
                (phw-layout-debug-error "display-buffer for normal buffer:%s,current buffer:%s"
                                        (ad-get-arg 0) (current-buffer))
@@ -2874,7 +2647,7 @@ If called for other frames it works like the original version."
                                       pop-up-frames)))
                  ;; maybe we have to split the edit-area here
                  (when (and (not phw-running-gnu-emacs-version-23)
-			    (or pop-up-windows (ad-get-arg 1))
+                            (or pop-up-windows (ad-get-arg 1))
                             (not pop-up-frames)
                             (not (phw-edit-window-splitted edit-win-list))
                             ;; if the BUFFER is already displayed in an
@@ -2910,7 +2683,7 @@ If called for other frames it works like the original version."
                        (setq phw-layout-temporary-dedicated-windows nil))
                    ad-do-it)
                  ))
-            
+
               (t ;; buffer is a special phw-buffer
                (phw-layout-debug-error "display-buffer for special phw-buffer: %s" (ad-get-arg 0))
                (or (setq ad-return-value (get-buffer-window (ad-get-arg 0) phw-frame))
@@ -2947,7 +2720,7 @@ If called for other frames it works like the original version."
                              (selected-window) nth-win))
       (phw-next-listelem (append win-list (if minibuf-win (list minibuf-win)))
                          (selected-window) nth-win))))
-  
+
 
 
 (defun phw-get-other-window-smart (win-list
@@ -3165,7 +2938,7 @@ allowed to be deleted."
                                         phw-edit-area-creators)))))
     (- (1+ (- (length phw-edit-area-creators) dels))
        dels)))
-                              
+
 
 (defphw-advice delete-window before phw-permanent-adviced-layout-functions
   "Does nothing special but only storing the fact that the edit-window has
@@ -3234,39 +3007,38 @@ compile-window then it will be hidden and otherwise the behavior depends on
           )
       (phw-with-original-basic-functions
        ad-do-it)
-    (phw-do-with-unfixed-phw-buffers
-     (when (and (phw-interactive-p)
-                (null (ad-get-arg 0))
-                (member 'delete-window phw-layout-always-operate-in-edit-window)
-                (not (phw-point-in-compile-window))
-                ;; this is needed because otherwise we would also select
-                ;; the 1. edit-window if point stays in another one!
-                (not (phw-point-in-edit-window-number)))
-       (phw-select-edit-window))
-     
-     (let* ((edit-win-list (phw-canonical-edit-windows-list))
-            (window (or (ad-get-arg 0) (selected-window)))
-            (edit-win-number (phw-position window edit-win-list))
-            (curr-window-before (selected-window)))
-       (cond ((equal window phw-compile-window)
-              (phw-toggle-compile-window -1))
-             ((null edit-win-number)
-              (if phw-advice-window-functions-signal-error
-                  (phw-error "Only an edit-window can be deleted!")))
-             (t
-              (ad-with-originals 'delete-window
-                (when (> (length edit-win-list) 1)
-                  (if (phw-windows-all-hidden)
-                      (delete-window window)
-                    (funcall (intern (format "phw-delete-window-in-editwindow-%s"
-                                             phw-layout-name))
-                             window edit-win-list))
-                  ;; If we have deleted that window which was current at call-time
-                  ;; we have to ensure that point stays in the next edit-window
-                  (when (equal curr-window-before window)
-                    (let ((edit-win-list-after (phw-canonical-edit-windows-list)))
-                      (if (not (member (selected-window) edit-win-list-after))
-                          (select-window (car edit-win-list-after)))))))))))))
+    (when (and (phw-interactive-p)
+               (null (ad-get-arg 0))
+               (member 'delete-window phw-layout-always-operate-in-edit-window)
+               (not (phw-point-in-compile-window))
+               ;; this is needed because otherwise we would also select
+               ;; the 1. edit-window if point stays in another one!
+               (not (phw-point-in-edit-window-number)))
+      (phw-select-edit-window))
+
+    (let* ((edit-win-list (phw-canonical-edit-windows-list))
+           (window (or (ad-get-arg 0) (selected-window)))
+           (edit-win-number (phw-position window edit-win-list))
+           (curr-window-before (selected-window)))
+      (cond ((equal window phw-compile-window)
+             (phw-toggle-compile-window -1))
+            ((null edit-win-number)
+             (if phw-advice-window-functions-signal-error
+                 (phw-error "Only an edit-window can be deleted!")))
+            (t
+             (ad-with-originals 'delete-window
+               (when (> (length edit-win-list) 1)
+                 (if (phw-windows-all-hidden)
+                     (delete-window window)
+                   (funcall (intern (format "phw-delete-window-in-editwindow-%s"
+                                            phw-layout-name))
+                            window edit-win-list))
+                 ;; If we have deleted that window which was current at call-time
+                 ;; we have to ensure that point stays in the next edit-window
+                 (when (equal curr-window-before window)
+                   (let ((edit-win-list-after (phw-canonical-edit-windows-list)))
+                     (if (not (member (selected-window) edit-win-list-after))
+                         (select-window (car edit-win-list-after))))))))))))
 
 (defphw-advice delete-other-windows before phw-permanent-adviced-layout-functions
   "Does nothing special but only storing the fact that the other edit-windows
@@ -3320,10 +3092,10 @@ edit-window is deleted) if there are more at least 2 edit-windows otherwise
 the compile-window is deleted \(if there is one). If WINDOW is an phw-window
 then only the other phw-windows are deleted and in all other cases the
 behavior depends on `phw-advice-window-functions-signal-error'."
-  
+
   (if (or (not phw-minor-mode)
           (not (equal (window-frame (or (ad-get-arg 0) (selected-window)))
-                                    phw-frame))
+                      phw-frame))
           ;; we are in the phw-frame but neither a compile-window nor the
           ;; phw-windows are visible, so we have no windows to protect against
           ;; deletion.
@@ -3337,49 +3109,48 @@ behavior depends on `phw-advice-window-functions-signal-error'."
           )
       (phw-with-original-basic-functions
        ad-do-it)
-    (phw-do-with-unfixed-phw-buffers
-     (when (and (phw-interactive-p)
-                (null (ad-get-arg 0))
-                (member 'delete-other-windows
-                        phw-layout-always-operate-in-edit-window)
-                ;; this is needed because otherwise we would also select
-                ;; the 1. edit-window if point stays in another one!
-                ;; if in an phw-window then we stay there because then we
-                ;; want to maximize the current phw-window
-                (phw-point-in-compile-window))
-       (phw-select-edit-window))
-     
-     (let* ((edit-win-list (phw-canonical-edit-windows-list))
-            (window (or (ad-get-arg 0) (selected-window)))
-            (top-most-window-top (nth 1 (phw-window-edges (car edit-win-list))))
-            (window-top (nth 1 (phw-window-edges window))))
-       (cond ((equal window phw-compile-window)
-              (if phw-advice-window-functions-signal-error
-                  (phw-error "The compile window can not be maximized!")))
-             ((integerp (phw-position window edit-win-list))
-              ;; we run the adviced version of delete-window for each "other"
-              ;; edit-window
-              (if (= (length edit-win-list) 1)
-                  (phw-toggle-compile-window -1)
-                (dolist (ew (delete window edit-win-list))
-                  (delete-window ew))
-                ;; now we try to avoid display jumps
-                (ignore-errors
-                  (when (not (= top-most-window-top window-top))
-                    (set-window-start
-                     window
-                     (phw-line-beginning-pos
-                      (* -1
-                         ;; TODO: Klaus Berndl <klaus.berndl@sdm.de>: hmm,
-                         ;; needs some fine adjustment: works well but not
-                         ;; perfect... 
-                         (+ (if (phw-bolp) -1 -2);; some fine adjustment 
-                            (count-lines (window-start) (point))
-                            (- window-top top-most-window-top)))))))))
-             (t ;; must be one of the special phw-windows
-              (phw-maximize-phw-buffer (buffer-name (window-buffer window)) t)))))))
-            
-  
+    (when (and (phw-interactive-p)
+               (null (ad-get-arg 0))
+               (member 'delete-other-windows
+                       phw-layout-always-operate-in-edit-window)
+               ;; this is needed because otherwise we would also select
+               ;; the 1. edit-window if point stays in another one!
+               ;; if in an phw-window then we stay there because then we
+               ;; want to maximize the current phw-window
+               (phw-point-in-compile-window))
+      (phw-select-edit-window))
+
+    (let* ((edit-win-list (phw-canonical-edit-windows-list))
+           (window (or (ad-get-arg 0) (selected-window)))
+           (top-most-window-top (nth 1 (phw-window-edges (car edit-win-list))))
+           (window-top (nth 1 (phw-window-edges window))))
+      (cond ((equal window phw-compile-window)
+             (if phw-advice-window-functions-signal-error
+                 (phw-error "The compile window can not be maximized!")))
+            ((integerp (phw-position window edit-win-list))
+             ;; we run the adviced version of delete-window for each "other"
+             ;; edit-window
+             (if (= (length edit-win-list) 1)
+                 (phw-toggle-compile-window -1)
+               (dolist (ew (delete window edit-win-list))
+                 (delete-window ew))
+               ;; now we try to avoid display jumps
+               (ignore-errors
+                 (when (not (= top-most-window-top window-top))
+                   (set-window-start
+                    window
+                    (phw-line-beginning-pos
+                     (* -1
+                        ;; TODO: Klaus Berndl <klaus.berndl@sdm.de>: hmm,
+                        ;; needs some fine adjustment: works well but not
+                        ;; perfect...
+                        (+ (if (phw-bolp) -1 -2);; some fine adjustment
+                           (count-lines (window-start) (point))
+                           (- window-top top-most-window-top)))))))))
+            (t ;; must be one of the special phw-windows
+             (phw-maximize-phw-buffer (buffer-name (window-buffer window)) t))))))
+
+
 (defphw-advice split-window-horizontally around phw-layout-basic-adviced-functions
   "The PHW-version of `split-window-horizontally'. Works exactly like the
 original function with the following PHW-adjustment:
@@ -3441,7 +3212,7 @@ an error occurs during this before-advice then it will be reported but
                                                 'split-window-vertically)))))
       (error (phw-warning "Before-advice split-window (error-type: %S, error-data: %S)"
                           (car oops) (cdr oops))))))
-      
+
 
 (defphw-advice split-window around phw-layout-basic-adviced-functions
   "The PHW-version of `split-window'. Works exactly like the original function
@@ -3510,7 +3281,7 @@ for compilation-buffers \(if a compile-window is used, see above)."
         (phw-select-edit-window))
     (let ((pop-up-windows t)
           ;; Don't let these interfere...
-          same-window-buffer-names same-window-regexps)          
+          same-window-buffer-names same-window-regexps)
       (pop-to-buffer (ad-get-arg 0) t
                      (ad-get-arg 1)))))
 
@@ -3588,7 +3359,7 @@ Otherwise it depends completely on the setting in `phw-other-window-behavior'."
                minibuffer-scroll-window))
       (phw-with-original-basic-functions
        ad-do-it)
-    (let* ((o-w-s-b 
+    (let* ((o-w-s-b
             (if (and phw-scroll-other-window-scrolls-compile-window
                      (not (phw-point-in-compile-window))
                      (equal 'visible (phw-compile-window-state)))
@@ -3641,7 +3412,7 @@ macro `phw-with-phw-advice' instead if you need this adviced version of
           ;; mechanism which just restore the size of the phw-windows as
           ;; before belance-windows...
           (let ((phw-sizes-before (phw-get-phw-window-sizes t)))
-            (phw-do-with-fixed-phw-buffers ad-do-it)
+            ad-do-it
             ;; this seems to be necessary - otherwise the reszing seems not to
             ;; take effect...
             (sit-for 0)
@@ -3691,56 +3462,6 @@ with the current window-height \(frame-height if USE-FRAME is not nil)."
 ;; straightforward, more customizable by users and slightly more
 ;; convenient.
 
-
-(defun phw-dedicated-special-buffers ()
-  "Return a list of all registered phw-buffers.
-
-This are all buffers which are registrated via the macro
-`defphw-window-dedicator-to-phw-buffer' \(these are mainly the
-standard tree-buffers of PHW plus the integrated speedbar-buffer
-and the symboldef-buffer, but in general it can be more if there
-are additional buffers registrated, e.g. by other applications).
-The value returned is independend from the currently *visible*
-special phw-buffers and therefore also from the current layout.
-If the currently visible PHW-buffers are needed then use the
-function `phw-get-current-visible-phw-buffers'. "
-  (delq nil (mapcar (function (lambda (e)
-                                (and (nth 3 e)
-                                     (phw-buffer-obj (nth 0 e)))))
-                    phw-phw-buffer-registry)))
-
-(defun phw-get-current-visible-phw-buffers (&optional phw-window-list)
-  "Return a list of all buffer-objects displayed in a currently visible and
-dedicated special phw-window. The superset of all possible \(because
-registered) special phw-buffers are available by
-`phw-dedicated-special-buffers'.
-If phw-window-list is not nil then this list is used otherwise it will be
-computed by `phw-canonical-phw-windows-list'."
-  (mapcar (function (lambda (window)
-                      (window-buffer window)))
-          (or phw-window-list (phw-canonical-phw-windows-list))))
-
-(defun phw-buffer-is-visible-phw-buffer-p (buffer-or-name)
-  "Return not nil if BUFFER-OR-NAME is a member of
-`phw-get-current-visible-phw-buffers'. BUFFER-OR-NAME ca be either a
-buffer-object or a buffer-name."
-  (let ((buffer (phw-buffer-obj buffer-or-name)))
-    (member buffer (phw-get-current-visible-phw-buffers))))
-
-(defun phw-buffer-is-phw-buffer-of-current-layout-p (buffer-or-name)
-  "Return not nil if BUFFER-OR-NAME is a member of
-`phw-special-phw-buffers-of-current-layout', means BUFFER-OR-NAME is one of
-that buffers which build up the current-layout as it is defined.
-BUFFER-OR-NAME ca be either a buffer-object or a buffer-name."
-  (let ((buff-name (phw-buffer-name buffer-or-name)))
-    (member buff-name phw-special-phw-buffers-of-current-layout)))
-
-(defun phw-buffer-is-the-only-visible-phw-buffer-p (buffer-or-name)
-  "Return not nil if BUFFER-OR-NAME is currently the only visible phw-buffer."
-  (let ((buffer (phw-buffer-obj buffer-or-name))
-        (current-phw-buffers (phw-get-current-visible-phw-buffers)))
-    (and (= (length current-phw-buffers) 1)
-         (equal buffer (car current-phw-buffers)))))
 
 (defun phw-set-minor-mode-text ()
   (setq phw-minor-mode-text
@@ -3959,108 +3680,13 @@ buffer of current layout is maximized otherwise nil."
 ;;   why not? should be not a problem...maybe this maximizes another one - be
 ;;   care of this!
 ;; - symboldef mjust be added to create-new-layout and to all menus
-;; 
-
-(defun phw-maximize-phw-buffer (phw-buffer-name &optional preserve-selected-window)
-  "Maximize that window which displays the special PHW-buffer PHW-BUFFER-NAME.
-Afterwards PHW-BUFFER-NAME is the only visible special PHW-buffer. If optional
-arg PRESERVE-SELECTED-WINDOW is nil then after maximizing always the current
-edit-window is selected and if not nil then the currently selected window-type
-does not change which means: If any phw-window was selected before maximizing
-then after maximizing the maximized phw-window is selected \(regardless if its
-the same as before the maximizing). If the compile window was selected before
-then it will be selected also after. If an edit-window was selected before it
-will be selected also after."
-  (when (equal (selected-frame) phw-frame)
-    (let ((curr-point (phw-where-is-point))
-          (compwin-hidden (equal 'hidden (phw-compile-window-state))))
-      ;; maximize the window if PHW-BUFFER-NAME is one of the special
-      ;; phw-buffers of current layout
-      (when (phw-buffer-is-phw-buffer-of-current-layout-p phw-buffer-name)
-        (phw-redraw-layout-full
-         t ;; no buffer synchronisation!
-         (phw-phw-buffer-registry-get-set-fcn phw-buffer-name))
-        (if compwin-hidden (phw-toggle-compile-window -1))
-        (setq phw-current-maximized-phw-buffer-name phw-buffer-name)
-        ;; point is now in the edit-buffer so maybe we have to move point to the
-        ;; buffer where it was before.
-        (when preserve-selected-window
-          (case (car curr-point)
-            (phw
-             (phw-window-select phw-buffer-name))
-            (compile
-             (phw-window-select phw-compile-window))))))))
-
-(defun phw-maximize-phw-buffer-new (phw-buffer-name &optional preserve-selected-window)
-  "Maximize that window which displays the special PHW-buffer PHW-BUFFER-NAME.
-Afterwards PHW-BUFFER-NAME is the only visible special PHW-buffer. If optional
-arg PRESERVE-SELECTED-WINDOW is nil then after maximizing always the current
-edit-window is selected and if not nil then the currently selected window-type
-does not change which means: If any phw-window was selected before maximizing
-then after maximizing the maximized phw-window is selected \(regardless if its
-the same as before the maximizing). If the compile window was selected before
-then it will be selected also after. If an edit-window was selected before it
-will be selected also after."
-  (when (equal (selected-frame) phw-frame)
-    (let ((curr-point (phw-where-is-point))
-          (compwin-hidden (equal 'hidden (phw-compile-window-state))))
-      ;; maximize the window if PHW-BUFFER-NAME is one of the special
-      ;; phw-buffers of current layout
-      (when (phw-buffer-is-phw-buffer-of-current-layout-p phw-buffer-name)
-        ;; TODO: Klaus Berndl <klaus.berndl@sdm.de>:
-        ;; - we have to check if phw-buffer-name ist currently visible. If yes
-        ;;   we have no problem, if no we have to do:
-        ;;   1. redrawing full layout to make phw-buffer-name visible but
-        ;;      preserving current maximizing state (of an eventually other
-        ;;      maximizied phw-window which is possible in left-right-layouts)
-        ;;   2. maximizing phw-buffer-name
-        ;;   3. to make it not too easy we have to deal with hidden windows
-        ;;      but maybe this is done with step 1....think about it
-        (phw-delete-phw-windows (phw-get-phw-window-location
-                                 (get-buffer-window phw-buffer-name))
-                                nil phw-buffer-name)
-        (if compwin-hidden (phw-toggle-compile-window -1))
-        (setq phw-current-maximized-phw-buffer-name phw-buffer-name)
-        ;; point is now in the edit-buffer so maybe we have to move point to the
-        ;; buffer where it was before.
-        (when preserve-selected-window
-          (case (car curr-point)
-            (phw
-             (phw-window-select phw-buffer-name))
-            (compile
-             (phw-window-select phw-compile-window))))))))
+;;
 
 (defvar phw-cycle-phw-buffer-state nil
   "State of phw-buffer-cycling. An alist where the car is the list of all
 buffer-names of the phw-buffers of current layout and the cdr the index which
 buffer-name is the next one in the cycle-sequence. Is only set by
 `phw-redraw-layout-full' and `phw-cycle-maximized-phw-buffers'.")
-
-(defun phw-cycle-maximized-phw-buffers ()
-  "Cycles through all phw-buffers by maximizing one at each step."
-  (interactive)
-  (when (null phw-cycle-phw-buffer-state)
-    ;; we have redrawn the complete layout and therefore the cycle-state
-    ;; has been reset. If we start the cycling with an already maximized
-    ;; phw-window we have first redraw fully so we get a correct
-    ;; initialization!
-    (phw-redraw-layout-full)
-    (setq phw-cycle-phw-buffer-state
-          (cons (mapcar (function (lambda (w)
-                                    (buffer-name (window-buffer w))))
-                        (phw-canonical-phw-windows-list))
-                0)))
-  ;; now we have a valid cycle-state so we can display the next phw-buffer
-  (phw-maximize-phw-buffer (nth (cdr phw-cycle-phw-buffer-state)
-                                (car phw-cycle-phw-buffer-state))
-                              t)
-  ;; now we have to move forward the cycle-state
-  (setcdr phw-cycle-phw-buffer-state
-          (if (= (cdr phw-cycle-phw-buffer-state)
-                 (1- (length (car phw-cycle-phw-buffer-state))))
-              0
-            (1+ (cdr phw-cycle-phw-buffer-state)))))
-
 
 (defun phw-window-configuration-data ()
   "Return current window configuration of the phw-frame as a list with the
@@ -4113,66 +3739,8 @@ during evaluating BODY the current window is always dedicated at the end!"
          ,@body)
      (set-window-dedicated-p (selected-window) t)))
 
-(defmacro defphw-window-dedicator-to-phw-buffer
-  (dedicator buffer-name-symbol tree-buffer-p docstring &rest body)
-  "Dedicates an phw-window for the buffer hold in BUFFER-NAME-SYMBOL.
-This defines a function DEDICATOR which makes the selected window
-dedicated to that buffer-name hold in BUFFER-NAME-SYMBOL. Do not
-quote DEDICATOR and BUFFER-NAME-SYMBOL. TREE-BUFFER-P has to be
-not nil if the phw-window displays a tree-buffer created with
-`defphw-tree-buffer-creator' \(in this case BUFFER-NAME-SYMBOL
-muts be equal to the argument TREE-BUFFER-NAME-SYMBOL of that
-macro). DOCSTRING is the docstring for DEDICATOR. BODY is all the
-program-code of DEDICATOR which will be run encapsulated within a
-call to `phw-with-dedicated-window'.
-
-Example:
-
-\(defphw-window-dedicator-to-phw-buffer phw-set-history-buffer
-    phw-history-buffer-name t
-  \"Display the History-buffer in current window and make window
-dedicated to the history buffer.\"
-  \(switch-to-buffer phw-history-buffer-name))
-
-This dedicates a window to a buffer with name
-`phw-history-buffer-name' by defining a function
-`phw-set-history-buffer' registered as \"window-dedicator\" for
-this buffer. The buffer with name `phw-history-buffer-name' is of
-type tree-buffer. The BODY \(in this example only a call to
-switch-to-buffer) will run within the macro
-`phw-with-dedicated-window'!"
-  `(eval-and-compile
-     (defun ,dedicator ()
-       ,docstring
-       (phw-phw-buffer-registry-add ,buffer-name-symbol
-                                    (quote ,buffer-name-symbol)
-                                    ,tree-buffer-p
-                                    (quote ,dedicator))
-       (phw-with-dedicated-window
-        ,@body))))
-
-(put 'defphw-window-dedicator-to-phw-buffer 'lisp-indent-function 3)
-
-;; (insert (pp (macroexpand '(defphw-window-dedicator-to-phw-buffer ccc
-;;                               klausi-sym (check) "doc" (do-something)))))
-
 (defvar phw-default-buffer-name " *PHW-default-buffer*"
   "Buffer name of a default phw buffer.")
-
-(defphw-window-dedicator-to-phw-buffer phw-set-default-phw-buffer phw-default-buffer-name nil
-  "Set in the current window the default phw-buffer which is useless but is
-used if a layout calls within its creation body a non bound
-phw-buffer-setting-function."
-  (switch-to-buffer (get-buffer-create phw-default-buffer-name))
-  (when (= (buffer-size) 0)
-    (insert " This is the default\n")
-    (insert " phw-buffer which is\n")
-    (insert " useless. Probably this\n")
-    (insert " buffer is displayed\n")
-    (insert " because the layout uses\n")
-    (insert " an unbound window-\n")
-    (insert " dedicator!"))
-  (setq buffer-read-only t))
 
 
 ;; ======== Delete-window-functions for the different layout-types ==========
@@ -4450,8 +4018,7 @@ Postconditions for CREATE-CODE:
 If you have not set a compilation-window in `phw-compile-window-height' then
 the layout contains no persistent compilation window and the other windows get a
 little more place."
-  (phw-set-history-buffer)
-  (select-window (next-window)))
+  (select-window))
 
 (defconst phw-buildin-layouts (phw-copy-list phw-available-layouts)
   "All layouts defined until now.")
@@ -4491,7 +4058,7 @@ first element of LAYOUT-LIST is returned."
     (if (and phw-change-layout-preserves-compwin-state
              (equal comp-win-state 'hidden))
         (phw-toggle-compile-window -1))))
-  
+
 
 (defun phw-change-layout (&optional preselect-type)
   "Change to one of current available layouts.
@@ -4512,18 +4079,6 @@ Note: Do not use this function from within elisp-programs; use
                                      phw-layout-types))))))
       (phw-layout-switch (phw-choose-layout-name
                           (phw-available-layouts-of-type type) t)))))
-
-(defun phw-show-layout-help ()
-  "Select a layout-name and shows the documentation of the layout-function.
-At least for the built-in layouts the documentation contains a picture of the
-outline of the chosen layout."
-  (interactive)
-  ;; ensure we have load all layouts defined until now
-  (phw-load-layouts)
-  (describe-function
-   (intern (format "phw-layout-function-%s"
-                   (phw-choose-layout-name (phw-available-layouts-of-type nil)
-                                           t)))))
 
 ;; the window-configuration cache with some accessors
 
@@ -4567,7 +4122,7 @@ not already initialized."
   "Clear the cache."
   (setq phw-window-config-cache nil))
 
-;; handling window-configurations 
+;; handling window-configurations
 
 (defun phw-window-configuration-invalidp (window-config)
   "Return non nil when WINDOW-CONFIG is probably not valid anymore.
@@ -4753,7 +4308,7 @@ for the quick version!"
              (equal (selected-frame) phw-frame))
     (let ((compwin-hidden (equal (phw-compile-window-state) 'hidden)))
       (message "PHW redrawing layout...")
-    
+
       (if (and phw-redraw-layout-quickly
                phw-activated-window-configuration)
           (condition-case nil
@@ -4765,14 +4320,14 @@ for the quick version!"
         (phw-redraw-layout-full nil nil nil (and (not arg)
                                                  phw-windows-hidden-state)
                                 (equal arg '(16))))
-      
+
       (if (and (not arg) compwin-hidden)
           (phw-toggle-compile-window -1)))
 
     ;;make sure we are in the edit window if necessary.
     (when phw-select-edit-window-on-redraw
       (phw-select-edit-window))
-  
+
     (message "PHW redrawing layout...done")))
 
 
@@ -4819,53 +4374,6 @@ window) is an phw-window! But only in this case the returned value is reliable!"
       (error "PHW: Serious window layout error for layout-type %s, phw-win:%s,first-rest-win:%s"
              layout-type phw-win res-win))))
 
-(defun phw-delete-phw-windows (side &optional residual-window except-phw-window-or-buffer)
-  "Delete all phw-windows of SIDE.
-SIDE must be one of 'left-side, 'right-side or 'top-side and must
-not conflict with the current layout-type \(e.g. left-side
-conflicts with a top-layout) otherwise an error is reported.
-
-If except-phw-window-or-buffer is nil all phw-windows on SIDE will be deleted.
-This argument can be either an phw-window, an phw-buffer object or the
-buffer-name of an phw-buffer: In this case all phw-windows except this window
-will be deleted on SIDE or with other words: In this case this window will be
-maximized.
-
-If RESIDUAL-WINDOW is not nil it must be one of the windows
-`phw-canonical-residual-windows-list' would compute. If nil then
-it will be computed."
-  (message "Klausi - del phw-windows: side: %s" side)
-  (let ((err-p (or (not (memq side '(left-side right-side top-side)))
-                   (case (phw-get-layout-type)
-                     (left-right (not (memq side '(left-side right-side))))
-                     (right (not (eq side 'right-side)))
-                     (left (not (eq side 'left-side)))
-                     (top (not (eq side 'top-side)))))))
-    (when err-p
-      (error "PHW: phw-delete-phw-window called with layout-type %s and SIDE: %s"
-             (phw-get-layout-type) side)))
-  (let* ((phw-window-not-to-delete (and except-phw-window-or-buffer
-                                        (typecase except-phw-window-or-buffer
-                                          (window except-phw-window-or-buffer)
-                                          (buffer (get-buffer-window
-                                                   except-phw-window-or-buffer phw-frame))
-                                          (string (get-buffer-window
-                                                   (get-buffer except-phw-window-or-buffer))))))
-         (win-list-to-del (delq nil (mapcar (function
-                                             (lambda (w)
-                                               (when (eq (phw-get-phw-window-location
-                                                          w residual-window)
-                                                         side)
-                                                 w)))
-                                            (phw-canonical-phw-windows-list)))))
-    (phw-with-original-basic-functions
-     (mapc (function (lambda (w)
-                       (unless (eq phw-window-not-to-delete w)
-                         (phw-layout-debug-error "Deleting phw-window: %s" w)
-                         (delete-window w)))) 
-           win-list-to-del))
-    ))
-
 (defun phw-draw-compile-window (&optional height)
   "Draws the compile-window during `phw-redraw-layout-full'. This function
 does not change the selected window! It sets `phw-compile-window' and
@@ -4889,7 +4397,7 @@ compile-window will drawn with height HEIGHT otherwise
     (save-selected-window
       (select-window phw-compile-window)
       (enlarge-window (- height phw-compile-window-height-lines)))))
-  
+
 ;; TODO: adapt the callers of this functions suitable
 
 ;; the main layout core-function. This function is the "environment" for a
@@ -4914,7 +4422,6 @@ contain the buffer before the emergency-redraw."
   (when (and phw-minor-mode
              (equal (selected-frame) phw-frame))
     ;; this functions are only needed at runtime!
-    (phw-load-layouts)
     (run-hooks 'phw-redraw-layout-before-hook)
     (let* ((config (or window-configuration-data (phw-window-configuration-data)))
            (window-before-redraw (nth 0 config))
@@ -4940,103 +4447,60 @@ contain the buffer before the emergency-redraw."
         ;; first we go to the edit-window/buffer
         (phw-select-edit-window)
 
-        (phw-do-with-unfixed-phw-buffers
-         ;; Do some actions regardless of the chosen layout
+        ;; Do some actions regardless of the chosen layout
 
-         ;; first we make all windows of phw-frame not dedicated and then we
-         ;; delete all other windows so we have a clean frame with only one
-         ;; window where we can draw our layout. We restore later the
-         ;; frame-state (splits, buffers, points etc.)
-         (phw-make-windows-not-dedicated phw-frame)
-         (delete-other-windows)
-         ;; some paranoia...
-         (set-window-dedicated-p (selected-window) nil)
+        ;; first we make all windows of phw-frame not dedicated and then we
+        ;; delete all other windows so we have a clean frame with only one
+        ;; window where we can draw our layout. We restore later the
+        ;; frame-state (splits, buffers, points etc.)
+        (phw-make-windows-not-dedicated phw-frame)
+        (delete-other-windows)
+        ;; some paranoia...
+        (set-window-dedicated-p (selected-window) nil)
 
-         ;; we force a layout-function to set both of these windows
-         ;; correctly.
-         (setq phw-edit-window nil
-               phw-compile-window nil)
+        ;; we force a layout-function to set both of these windows
+        ;; correctly.
+        (setq phw-edit-window nil
+              phw-compile-window nil)
 
-         ;; Now we draw the compile-window and also the phw-windows - the
-         ;; latter ones by calling the layout-function
-         (if (and (not emergency) (phw-windows-all-hidden no-phw-windows))
-             ;; we want a layout-redraw without any phw-windows
-             (progn
-               (when phw-compile-window-height
-                 (phw-draw-compile-window (and window-configuration-data
-                                               compile-window-config
-                                               (nth 2 compile-window-config)))
-                 )
-               (setq phw-edit-window (selected-window)))
+        ;; we want a layout-redraw without any phw-windows
+        (when phw-compile-window-height
+          (phw-draw-compile-window (and window-configuration-data
+                                        compile-window-config
+                                        (nth 2 compile-window-config))))
+        (setq phw-edit-window (selected-window))
 
-           ;; here either emergency is true or at least some phw-windows
-           ;; should be displayed
-           
-           ;; we have to redraw with phw-windows
-           ;; 1. Drawing the compile-window when it has frame-width
-           (when (and phw-compile-window-height
-                      (or (equal phw-compile-window-width 'frame)
-                          (equal (phw-get-layout-type phw-layout-name) 'top)))
-             (phw-draw-compile-window (and window-configuration-data
-                                           compile-window-config
-                                           (nth 2 compile-window-config))))
+        ;; Now we store the window-sizes of the phw-windows if we have a full
+        ;; layout but only if we have drawn them either without a
+        ;; compile-window or with a compile-window with height as specified
+        ;; in `phw-compile-window-height'
+        (when (and (or emergency (phw-windows-all-displayed no-phw-windows))
+                   (or (not phw-compile-window-height-lines)
+                       (not (and window-configuration-data
+                                 compile-window-config))))
+          (setq phw-layout-default-window-sizes (phw-get-phw-window-sizes)))
 
-           ;; 2. Drawing the phw-windows with the layout-function
-           (funcall (intern (format "phw-layout-function-%s" phw-layout-name))
-                    phw-windows-creator)
+        ;; Here all needed windows are created
 
-           ;; 3. Drawing the compile-window when it has edit-area-width
-           (when (and phw-compile-window-height
-                      (equal phw-compile-window-width 'edit-window)
-                      (not (equal (phw-get-layout-type phw-layout-name) 'top)))
-             (phw-draw-compile-window (and window-configuration-data
-                                           compile-window-config
-                                           (nth 2 compile-window-config))))
+        ;; selecting the edit-window (this is an implicit-check if the
+        ;; layout-function has set `phw-edit-window'
+        (select-window
+         (if phw-edit-window
+             phw-edit-window
+           (error "Edit-window not set in function 'phw-layout-function-%s"
+                  phw-layout-name)))
 
-           ;; 4. Delete accordingly to no-phw-windows some phw-windows
-           ;;    If emergency is here nil then it is not possible that all
-           ;;    phw-windows should be hidden, so we must check if all
-           ;;    phw-windows should be displayed (in this case we do not
-           ;;    delete some phw-windows)
-           (unless (or emergency (phw-windows-all-displayed no-phw-windows))
-             ;; here no-phw-windows must be a list of side-symbols.
-             (dolist (side (phw-windows-hidden-state-list no-phw-windows))
-               (phw-delete-phw-windows side phw-edit-window)))
-           )
+        ;; resetting some states if we have a full layout
+        ;; TODO: Klaus Berndl <klaus.berndl@sdm.de>: maybe here is something
+        ;; to adapt?!
+        (when (or emergency
+                  (and (null phw-windows-creator) (phw-windows-all-displayed no-phw-windows)))
+          (setq phw-current-maximized-phw-buffer-name nil)
+          (setq phw-cycle-phw-buffer-state nil))
 
-         ;; Now we store the window-sizes of the phw-windows if we have a full
-         ;; layout but only if we have drawn them either without a
-         ;; compile-window or with a compile-window with height as specified
-         ;; in `phw-compile-window-height'
-         (when (and (or emergency (phw-windows-all-displayed no-phw-windows))
-                    (or (not phw-compile-window-height-lines)
-                        (not (and window-configuration-data
-                                  compile-window-config))))
-           (setq phw-layout-default-window-sizes (phw-get-phw-window-sizes)))
-
-         ;; Here all needed windows are created
-
-         ;; selecting the edit-window (this is an implicit-check if the
-         ;; layout-function has set `phw-edit-window'
-         (select-window
-          (if phw-edit-window
-              phw-edit-window
-            (error "Edit-window not set in function 'phw-layout-function-%s"
-                   phw-layout-name)))
-
-         ;; resetting some states if we have a full layout
-         ;; TODO: Klaus Berndl <klaus.berndl@sdm.de>: maybe here is something
-         ;; to adapt?!
-         (when (or emergency
-                   (and (null phw-windows-creator) (phw-windows-all-displayed no-phw-windows)))
-           (setq phw-current-maximized-phw-buffer-name nil)
-           (setq phw-cycle-phw-buffer-state nil))
-
-         ;; now regardless of the value of PHW-WINDOWS-CREATOR and
-         ;; NO-PHW-WINDOWS the selected window is the edit-window and
-         ;; phw-edit-window is set to this window.
-
-         ) ;; end phw-do-with-unfixed-phw-buffers
+        ;; now regardless of the value of PHW-WINDOWS-CREATOR and
+        ;; NO-PHW-WINDOWS the selected window is the edit-window and
+        ;; phw-edit-window is set to this window.
 
         ;; !!!! here we set phw-windows-hidden-state !!!!
         (if emergency
@@ -5087,7 +4551,7 @@ contain the buffer before the emergency-redraw."
            (phw-with-original-permanent-layout-functions
             (phw-restore-edit-area)))
         (phw-edit-area-creators-init))
-      
+
       (when (not emergency)
         (setq edit-win-list-after-redraw (phw-canonical-edit-windows-list))
         (setq edit-area-size (phw-get-edit-area-size)))
@@ -5122,7 +4586,7 @@ contain the buffer before the emergency-redraw."
         ;; at the end of the edit-area-redraw we always stay in that edit-window
         ;; as before the redraw
         (when (integerp window-before-redraw)
-          (phw-select-edit-window window-before-redraw))       
+          (phw-select-edit-window window-before-redraw))
         ;; if we were in an edit-window before redraw let us go to the old
         ;; place if the buffer is still alive.
         (when (and pos-before-redraw
@@ -5148,50 +4612,6 @@ contain the buffer before the emergency-redraw."
                        (phw-windows-all-displayed no-phw-windows)))
           (setq phw-special-phw-buffers-of-current-layout
                 (mapcar 'buffer-name current-phw-buffers)))
-
-        ;; TODO: Klaus Berndl <klaus.berndl@sdm.de>: for the following we
-        ;; should add a special after-redraw-layout-actions registry where all
-        ;; browsers like file-browser. methods-brwoser, speedbar-support etc.
-        ;; can register a function which gets the phw-win-list before the
-        ;; redraw and that one after the redraw and they can do what they
-        ;; want. This would remove the browsing code here in the layout
-        ;; library!!
-        
-        ;; fill-up the history new with all buffers if the history buffer was
-        ;; not shown before the redisplay but now (means if the layout has
-        ;; changed)
-        (when (and (not (member (phw-buffer-obj phw-history-buffer-name)
-                                phw-buffers-before-redraw))
-                   (member (phw-buffer-obj phw-history-buffer-name)
-                           current-phw-buffers))
-          (phw-add-buffers-to-history-new))
-        ;; update the directories buffer if the directories buffer was not
-        ;; shown before the redisplay but now (means if the layout has
-        ;; changed or - in case of left-right layout - another side is
-        ;; visible than before)
-        (when (and (not (member (phw-buffer-obj phw-directories-buffer-name)
-                                phw-buffers-before-redraw))
-                   (member (phw-buffer-obj phw-directories-buffer-name)
-                           current-phw-buffers))
-          (phw-update-directories-buffer))
-        ;; deactivate the speedbar stuff if the speedbar-integration-buffer
-        ;; was shown before but not now - but only if the layout has been
-        ;; changed
-        (when (and (member (phw-buffer-obj phw-speedbar-buffer-name)
-                           phw-buffers-before-redraw)
-                   (not (member (phw-buffer-obj phw-speedbar-buffer-name)
-                                current-phw-buffers))
-                   ;; The following conditions are necessary to ensure the
-                   ;; layout has been changed
-                   (null phw-windows-creator)
-                   (phw-windows-all-displayed no-phw-windows))
-            (ignore-errors (phw-speedbar-deactivate)))
-        
-        ;; synchronize the special phw-buffers if necessary (means if not all
-        ;; phw-windows of current redraw were visible before redraw) and
-        (when (and (not (equal phw-buffers-before-redraw current-phw-buffers))
-                   (not no-buffer-sync))
-          (phw-layout-window-sync))
         )
 
       ;; if the compile-window was selected before redraw we go back to it
@@ -5211,7 +4631,7 @@ contain the buffer before the emergency-redraw."
           (setq phw-activated-window-configuration
                 (phw-current-window-configuration))))
     (run-hooks 'phw-redraw-layout-after-hook)))
-    
+
 
 (defun phw-redraw-layout-quickly ()
   "Redraw the layout quickly using the cached window configuration
@@ -5294,7 +4714,7 @@ of current width and height are stored!"
   (interactive)
   (when (equal (selected-frame) phw-frame)
     (setq phw-layout-window-sizes
-	  (phw-remove-assoc phw-layout-name phw-layout-window-sizes))
+          (phw-remove-assoc phw-layout-name phw-layout-window-sizes))
     (phw-customize-save-variable 'phw-layout-window-sizes phw-layout-window-sizes)))
 
 ;; Now per default returns fractions of the phw-frame; thanks to Geert Ribbers
@@ -5361,11 +4781,11 @@ floating-point-numbers. Default referencial width rsp. height are
     (let* ((ref-width (or (car ref-size) (frame-width phw-frame)))
            (ref-height (or (cdr ref-size) (frame-height phw-frame)))
            (absolut-width (if (and (numberp (car size))
-                                   (floatp (car size))) 
+                                   (floatp (car size)))
                               (* (car size) ref-width)
                             (car size)))
            (absolut-height (if (and (numberp (car size))
-                                    (floatp (cdr size))) 
+                                    (floatp (cdr size)))
                                (* (cdr size) ref-height)
                              (cdr size)))
            (enlarge-width (if (numberp absolut-width)
@@ -5393,34 +4813,33 @@ fractions of current frame sizes or fixed values.
 The sizes are even changed if the windows-sizes are fixed, see the
 option `window-size-fixed' \(only available for GNU Emacs)."
   (unless (phw-windows-all-hidden)
-    (phw-do-with-unfixed-phw-buffers
-     (let ((sizes (or window-sizes phw-layout-default-window-sizes))
-           (size-elem nil)
-           (windows (phw-canonical-phw-windows-list))
-           (ref-width (frame-width phw-frame))
-           (ref-height (if (phw-compile-window-live-p)
-                           (- (frame-height phw-frame)
-                              (phw-window-full-height phw-compile-window))
-                         (frame-height phw-frame))))
-       (phw-layout-debug-error "phw-set-phw-window-sizes: window-sizes: %s, sizes: %s, windows: %s, length-s: %d, length-w: %d"
-                               window-sizes sizes windows
-                               (length sizes) (length windows))
-       (mapc (lambda (win)
-               (phw-layout-debug-error "phw-set-phw-window-sizes: win %s, ded: %s"
-                                       win (window-dedicated-p win)))
-             windows)
-       (when sizes
-         (dolist (win windows)
-           (setq size-elem
-                 (phw-member-of-symbol/value-list (buffer-name (window-buffer win))
-                                                  sizes
-                                                  'car
-                                                  'cdr))
-           (phw-layout-debug-error "phw-set-phw-window-sizes: set-size of: window:%s,buffer:%s,size-elem:%s"
-                                   win (window-buffer win) size-elem)
-           ;; we change only width/height for buffers we found stored width/height for
-           (when size-elem
-             (phw-set-window-size win size-elem (cons ref-width ref-height)))))))))
+    (let ((sizes (or window-sizes phw-layout-default-window-sizes))
+          (size-elem nil)
+          (windows (phw-canonical-phw-windows-list))
+          (ref-width (frame-width phw-frame))
+          (ref-height (if (phw-compile-window-live-p)
+                          (- (frame-height phw-frame)
+                             (phw-window-full-height phw-compile-window))
+                        (frame-height phw-frame))))
+      (phw-layout-debug-error "phw-set-phw-window-sizes: window-sizes: %s, sizes: %s, windows: %s, length-s: %d, length-w: %d"
+                              window-sizes sizes windows
+                              (length sizes) (length windows))
+      (mapc (lambda (win)
+              (phw-layout-debug-error "phw-set-phw-window-sizes: win %s, ded: %s"
+                                      win (window-dedicated-p win)))
+            windows)
+      (when sizes
+        (dolist (win windows)
+          (setq size-elem
+                (phw-member-of-symbol/value-list (buffer-name (window-buffer win))
+                                                 sizes
+                                                 'car
+                                                 'cdr))
+          (phw-layout-debug-error "phw-set-phw-window-sizes: set-size of: window:%s,buffer:%s,size-elem:%s"
+                                  win (window-buffer win) size-elem)
+          ;; we change only width/height for buffers we found stored width/height for
+          (when size-elem
+            (phw-set-window-size win size-elem (cons ref-width ref-height))))))))
 
 ;; Klaus Berndl <klaus.berndl@sdm.de>: frame-width is smaller than
 ;; phw-window-full-width for only one window in the frame. But for now this
