@@ -860,7 +860,7 @@ So be aware which code you add to which hook!"
   :group 'phw-layout
   :type 'hook)
 
-(defcustom phw-redraw-layout-after-hook '(phw-eshell-recenter)
+(defcustom phw-redraw-layout-after-hook nil ; '(phw-eshell-recenter)
   "*Hooks run direct after the PHW-layout has been redrawn.
 If you use the eshell-integration of PHW then the function
 `phw-eshell-recenter' should be in this hook."
@@ -1055,16 +1055,12 @@ compile-window and not identical to one of the visible PHW-windows.
 Note the difference to `phw-canonical-edit-windows-list': That function checks
 additionaly if a window is not dedicated."
   (let ((comp-win-state (phw-compile-window-state))
-        (windows-list (or winlist (phw-canonical-windows-list)))
-        (registered-phw-buffers (phw-dedicated-special-buffers)))
+        (windows-list (or winlist (phw-canonical-windows-list))))
     (delq nil (mapcar (function (lambda (elem)
-                                  (if (and (not (memq (window-buffer elem) registered-phw-buffers))
-                                           (or (not (eq comp-win-state 'visible))
-                                               (not (eq elem phw-compile-window))))
+                                  (if (or (not (eq comp-win-state 'visible))
+                                          (not (eq elem phw-compile-window)))
                                       elem)))
                       windows-list))))
-
-
 
 (defvar phw-last-major-mode nil)
 
@@ -1301,139 +1297,135 @@ arguments. Do never set this variable; it is only set by
   ""
   nil)
 
-(when-phw-running-emacs
- ;; only GNU Emacs basic advices
- (defphw-advice mouse-drag-vertical-line around phw-layout-basic-adviced-functions
-   "Allows manually window-resizing even if `phw-fix-window-size' is not nil
+(defphw-advice mouse-drag-vertical-line around phw-layout-basic-adviced-functions
+  "Allows manually window-resizing even if `phw-fix-window-size' is not nil
 for current layout."
-   (if (and phw-minor-mode
-            (equal (selected-frame) phw-frame)
-            (not (phw-windows-all-hidden))
-            (phw-get-window-fix-type phw-layout-name))
-       ad-do-it
-     ad-do-it))
+  (if (and phw-minor-mode
+           (equal (selected-frame) phw-frame)
+           (not (phw-windows-all-hidden))
+           (phw-get-window-fix-type phw-layout-name))
+      ad-do-it
+    ad-do-it))
 
- (defphw-advice shrink-window-if-larger-than-buffer around phw-layout-basic-adviced-functions
-   "Makes the function compatible with PHW."
-   (or (ad-get-arg 0) (ad-set-arg 0 (selected-window)))
-   (phw-layout-debug-error "shrink-window-if-larger-than-buffer: window: %s"
-                           (ad-get-arg 0))
-   (if (or (not phw-minor-mode)
-           (not (equal (window-frame (ad-get-arg 0)) phw-frame))
-           (member (ad-get-arg 0) (phw-canonical-phw-windows-list)))
-       (phw-with-original-basic-functions
-        ad-do-it)
-     (save-selected-window
-       (select-window (ad-get-arg 0))
-       (phw-layout-debug-error "shrink-window-if-larger-than-buffer: buffer to shrink: %s"
-                               (current-buffer))
-       (let* ((params (frame-parameters))
-              (mini (cdr (assq 'minibuffer params)))
-              (edges (phw-window-edges))
-              ;; we prevent to shrink the compile-window below
-              ;; `phw-compile-window-height'
-              (window-min-height (if (and (equal (ad-get-arg 0) phw-compile-window)
-                                          (and phw-compile-window-prevent-shrink-below-height
-                                               (not (phw-interactive-p)))
-                                          window-min-height
-                                          phw-compile-window-height-lines
-                                          (< window-min-height
-                                             phw-compile-window-height-lines))
-                                     phw-compile-window-height-lines
-                                   window-min-height)))
-         (if (and (let ((frame (selected-frame)))
-                    (select-frame (window-frame (ad-get-arg 0)))
-                    (unwind-protect
-                        (not (one-window-p t))
-                      (select-frame frame)))
-                  (phw-window-safely-shrinkable-p (ad-get-arg 0))
-                  (pos-visible-in-window-p (point-min) (ad-get-arg 0))
-                  (not (eq mini 'only))
-                  (or (not mini)
-                      (< (nth 3 edges) (nth 1 (phw-window-edges mini)))
-                      (> (nth 1 edges) (cdr (assq 'menu-bar-lines params)))))
-             (phw-fit-window-to-buffer (ad-get-arg 0)
-                                       (phw-window-full-height (ad-get-arg 0))))))))
-
- (defphw-advice resize-temp-buffer-window around phw-layout-basic-adviced-functions
-   "Makes the function compatible with PHW."
-   (phw-layout-debug-error "resize-temp-buffer-window: buffer: %s, window: %s, frame: %s"
-                           (current-buffer) (selected-window) (selected-frame))
-   (if (or (not phw-minor-mode)
-           (not (equal (selected-frame) phw-frame))
-           (equal (car (phw-where-is-point)) 'phw))
-       (phw-with-original-basic-functions
-        ad-do-it)
-     (if (and (equal (selected-window) phw-compile-window)
-              (member phw-compile-window-temporally-enlarge
-                      '(after-selection nil))
-              ;; The *Completions* buffer must always being enlarged!!
-              (not (phw-string= (buffer-name (current-buffer)) "*Completions*")))
-         (progn
-           (phw-layout-debug-error "resize-temp-buffer-window: buffer: shrink to comp-win-height")
-           (phw-toggle-compile-window-height -1))
-       ;; we prevent to shrink the compile-window below
-       ;; `phw-compile-window-height'
-       (let ((window-min-height (if (and window-min-height
+(defphw-advice shrink-window-if-larger-than-buffer around phw-layout-basic-adviced-functions
+  "Makes the function compatible with PHW."
+  (or (ad-get-arg 0) (ad-set-arg 0 (selected-window)))
+  (phw-layout-debug-error "shrink-window-if-larger-than-buffer: window: %s"
+                          (ad-get-arg 0))
+  (if (or (not phw-minor-mode)
+          (not (equal (window-frame (ad-get-arg 0)) phw-frame))
+          (member (ad-get-arg 0) (phw-canonical-phw-windows-list)))
+      (phw-with-original-basic-functions
+       ad-do-it)
+    (save-selected-window
+      (select-window (ad-get-arg 0))
+      (phw-layout-debug-error "shrink-window-if-larger-than-buffer: buffer to shrink: %s"
+                              (current-buffer))
+      (let* ((params (frame-parameters))
+             (mini (cdr (assq 'minibuffer params)))
+             (edges (phw-window-edges))
+             ;; we prevent to shrink the compile-window below
+             ;; `phw-compile-window-height'
+             (window-min-height (if (and (equal (ad-get-arg 0) phw-compile-window)
+                                         (and phw-compile-window-prevent-shrink-below-height
+                                              (not (phw-interactive-p)))
+                                         window-min-height
                                          phw-compile-window-height-lines
-                                         phw-compile-window-prevent-shrink-below-height
                                          (< window-min-height
                                             phw-compile-window-height-lines))
                                     phw-compile-window-height-lines
                                   window-min-height)))
-         (phw-layout-debug-error "resize-temp-buffer-window: within let - window: %s"
-                                 (selected-window))
-         (phw-layout-debug-error "resize-temp-buffer-window: check unless %s, %s, %s"
-                                 (one-window-p 'nomini)
-                                 (and (not (equal (selected-window) phw-compile-window))
-                                      (not (phw-edit-window-splitted)))
-                                 (not (pos-visible-in-window-p (point-min))))
-         (unless (or (one-window-p 'nomini)
-                     ;; Klaus Berndl <klaus.berndl@sdm.de>: we do nothing if an unsplitted
-                     ;; edit-window should be resized because this would fail (e.g. if
-                     ;; `pop-up-windows' is nil)
-                     (and (not (equal (selected-window) phw-compile-window))
-                          (not (phw-edit-window-splitted)))
-                     (not (pos-visible-in-window-p (point-min)))
-                     )
-           (phw-layout-debug-error "resize-temp-buffer-window: resize buffer: %s"
-                                   (current-buffer))
-           (phw-fit-window-to-buffer
-            (selected-window)
-            (if (functionp temp-buffer-max-height)
-                (funcall temp-buffer-max-height (current-buffer))
-              temp-buffer-max-height)))))))
+        (if (and (let ((frame (selected-frame)))
+                   (select-frame (window-frame (ad-get-arg 0)))
+                   (unwind-protect
+                       (not (one-window-p t))
+                     (select-frame frame)))
+                 (phw-window-safely-shrinkable-p (ad-get-arg 0))
+                 (pos-visible-in-window-p (point-min) (ad-get-arg 0))
+                 (not (eq mini 'only))
+                 (or (not mini)
+                     (< (nth 3 edges) (nth 1 (phw-window-edges mini)))
+                     (> (nth 1 edges) (cdr (assq 'menu-bar-lines params)))))
+            (phw-fit-window-to-buffer (ad-get-arg 0)
+                                      (phw-window-full-height (ad-get-arg 0))))))))
 
- (defphw-advice pop-to-buffer around phw-layout-basic-adviced-functions
-   "Chooses the window with the PHW-adviced version of `display-buffer'."
-   (if (or (not phw-minor-mode)
-           (null (ad-get-arg 0)))
-       (phw-with-original-basic-functions
-        ad-do-it)
-     (condition-case nil
-         (progn
-           (phw-layout-debug-error "pop-to-buffer: buffer: %s, %s"
-                                   (ad-get-arg 0) (ad-get-arg 1))
-           (select-window (display-buffer (ad-get-arg 0)
-                                          (ad-get-arg 1)))
-           ;; TODO: Klaus Berndl <klaus.berndl@sdm.de>: Do we need this?!
-           (set-buffer (ad-get-arg 0))
-           (if (ad-get-arg 2)
-               ;; not the best solution but for now....
-               (bury-buffer (ad-get-arg 0))))
-       ;; This is if the call to the adviced `display-buffer' fails (seems
-       ;; to make problems with C-h i and the *info*-buffer). Then we run the
-       ;; orginal version.
-       (error
-        (phw-layout-debug-error "pop-to-buffer: adviced version failed for buffer: %s, %s"
-                                (ad-get-arg 0) (ad-get-arg 1))
-        (if (phw-buffer-is-dedicated-special-buffer-p (ad-get-arg 0))
-            (phw-error "Can not go to a invisible special PHW-buffer!")
-          ad-do-it)))
-     (when (phw-point-in-compile-window)
-       ;; we set the height of the compile-window according to
-       ;; `phw-enlarged-compilation-window-max-height'
-       (phw-set-compile-window-height)))))
+(defphw-advice resize-temp-buffer-window around phw-layout-basic-adviced-functions
+  "Makes the function compatible with PHW."
+  (phw-layout-debug-error "resize-temp-buffer-window: buffer: %s, window: %s, frame: %s"
+                          (current-buffer) (selected-window) (selected-frame))
+  (if (or (not phw-minor-mode)
+          (not (equal (selected-frame) phw-frame))
+          (equal (car (phw-where-is-point)) 'phw))
+      (phw-with-original-basic-functions
+       ad-do-it)
+    (if (and (equal (selected-window) phw-compile-window)
+             (member phw-compile-window-temporally-enlarge
+                     '(after-selection nil))
+             ;; The *Completions* buffer must always being enlarged!!
+             (not (phw-string= (buffer-name (current-buffer)) "*Completions*")))
+        (progn
+          (phw-layout-debug-error "resize-temp-buffer-window: buffer: shrink to comp-win-height")
+          (phw-toggle-compile-window-height -1))
+      ;; we prevent to shrink the compile-window below
+      ;; `phw-compile-window-height'
+      (let ((window-min-height (if (and window-min-height
+                                        phw-compile-window-height-lines
+                                        phw-compile-window-prevent-shrink-below-height
+                                        (< window-min-height
+                                           phw-compile-window-height-lines))
+                                   phw-compile-window-height-lines
+                                 window-min-height)))
+        (phw-layout-debug-error "resize-temp-buffer-window: within let - window: %s"
+                                (selected-window))
+        (phw-layout-debug-error "resize-temp-buffer-window: check unless %s, %s, %s"
+                                (one-window-p 'nomini)
+                                (and (not (equal (selected-window) phw-compile-window))
+                                     (not (phw-edit-window-splitted)))
+                                (not (pos-visible-in-window-p (point-min))))
+        (unless (or (one-window-p 'nomini)
+                    ;; Klaus Berndl <klaus.berndl@sdm.de>: we do nothing if an unsplitted
+                    ;; edit-window should be resized because this would fail (e.g. if
+                    ;; `pop-up-windows' is nil)
+                    (and (not (equal (selected-window) phw-compile-window))
+                         (not (phw-edit-window-splitted)))
+                    (not (pos-visible-in-window-p (point-min)))
+                    )
+          (phw-layout-debug-error "resize-temp-buffer-window: resize buffer: %s"
+                                  (current-buffer))
+          (phw-fit-window-to-buffer
+           (selected-window)
+           (if (functionp temp-buffer-max-height)
+               (funcall temp-buffer-max-height (current-buffer))
+             temp-buffer-max-height)))))))
+
+(defphw-advice pop-to-buffer around phw-layout-basic-adviced-functions
+  "Chooses the window with the PHW-adviced version of `display-buffer'."
+  (if (or (not phw-minor-mode)
+          (null (ad-get-arg 0)))
+      (phw-with-original-basic-functions
+       ad-do-it)
+    (condition-case nil
+        (progn
+          (phw-layout-debug-error "pop-to-buffer: buffer: %s, %s"
+                                  (ad-get-arg 0) (ad-get-arg 1))
+          (select-window (display-buffer (ad-get-arg 0)
+                                         (ad-get-arg 1)))
+          ;; TODO: Klaus Berndl <klaus.berndl@sdm.de>: Do we need this?!
+          (set-buffer (ad-get-arg 0))
+          (if (ad-get-arg 2)
+              ;; not the best solution but for now....
+              (bury-buffer (ad-get-arg 0))))
+      ;; This is if the call to the adviced `display-buffer' fails (seems
+      ;; to make problems with C-h i and the *info*-buffer). Then we run the
+      ;; orginal version.
+      (error
+       (phw-layout-debug-error "pop-to-buffer: adviced version failed for buffer: %s, %s"
+                               (ad-get-arg 0) (ad-get-arg 1))
+       ad-do-it))
+    (when (phw-point-in-compile-window)
+      ;; we set the height of the compile-window according to
+      ;; `phw-enlarged-compilation-window-max-height'
+      (phw-set-compile-window-height))))
 
 
 ;; Klaus Berndl <klaus.berndl@sdm.de>: Fixes a bug with ths
@@ -2030,13 +2022,6 @@ value of OTHER-EDIT-WINDOW \(which is a value returned by
   (and (equal (selected-frame) phw-frame)
        (phw-compile-window-live-p)
        (equal (selected-window) phw-compile-window)))
-
-(defun phw-buffer-is-dedicated-special-buffer-p (buffer-or-name)
-  "Return not nil if BUFFER-OR-NAME is a member of
-`phw-dedicated-special-buffers'. BUFFER-OR-NAME ca be either a
-buffer-object or a buffer-name."
-  (let ((buffer (phw-buffer-obj buffer-or-name)))
-    (member buffer (phw-dedicated-special-buffers))))
 
 
 (defun phw-goto-phw-window (phw-buffer-name)
@@ -2638,7 +2623,7 @@ If called for other frames it works like the original version."
                    ;; compilation-window-height take effect.
                    ad-do-it)))
 
-              ((not (phw-buffer-is-dedicated-special-buffer-p (ad-get-arg 0)))
+              (t
                (phw-layout-debug-error "display-buffer for normal buffer:%s,current buffer:%s"
                                        (ad-get-arg 0) (current-buffer))
                (let ((edit-win-list (phw-canonical-edit-windows-list))
@@ -2682,12 +2667,7 @@ If called for other frames it works like the original version."
                        (set-window-dedicated-p phw-compile-window nil)
                        (setq phw-layout-temporary-dedicated-windows nil))
                    ad-do-it)
-                 ))
-
-              (t ;; buffer is a special phw-buffer
-               (phw-layout-debug-error "display-buffer for special phw-buffer: %s" (ad-get-arg 0))
-               (or (setq ad-return-value (get-buffer-window (ad-get-arg 0) phw-frame))
-                   (phw-error "display-buffer can not display not visible phw-buffers!")))))
+                 ))))
 
     (phw-layout-debug-error "display-buffer - just run original version.")
     (phw-with-original-basic-functions
@@ -2887,33 +2867,30 @@ allowed to be deleted."
                   (otherwise ;; a certain frame
                        (if (frame-live-p (ad-get-arg 1))
                            (list (ad-get-arg 1)))))))
-    (if (member (phw-buffer-obj buf-name) (phw-dedicated-special-buffers))
-        (if phw-advice-window-functions-signal-error
-            (phw-error "delete-windows-on is not allowed for the special PHW-buffers!"))
-      (dolist (f frames)
-        (if (not (equal f phw-frame))
+    (dolist (f frames)
+      (if (not (equal f phw-frame))
+          (progn
+            (ad-set-arg 1 f)
+            ad-do-it)
+        (unwind-protect
             (progn
-              (ad-set-arg 1 f)
-              ad-do-it)
-          (unwind-protect
-              (progn
-                (select-frame phw-frame)
-                (let ((windows-to-delete (delq nil (mapcar (function
-                                                            (lambda (w)
-                                                              (when (string= buf-name
-                                                                             (phw-buffer-name w))
-                                                                w)))
-                                                           (phw-canonical-edit-windows-list))))
-;;                       (buffer-to-switch (when (string= buf-name
-;;                                                        (phw-buffer-name (selected-window)))
-;;                                             (other-buffer buf-name t phw-frame)))
-                      )
-                  (dolist (w windows-to-delete)
-                    (delete-window w))
-;;                   (when buffer-to-switch
-;;                     (switch-to-buffer buffer-to-switch))
-                  ))
-            (select-frame curr-frame)))))))
+              (select-frame phw-frame)
+              (let ((windows-to-delete (delq nil (mapcar (function
+                                                          (lambda (w)
+                                                            (when (string= buf-name
+                                                                           (phw-buffer-name w))
+                                                              w)))
+                                                         (phw-canonical-edit-windows-list))))
+                    ;;                       (buffer-to-switch (when (string= buf-name
+                    ;;                                                        (phw-buffer-name (selected-window)))
+                    ;;                                             (other-buffer buf-name t phw-frame)))
+                    )
+                (dolist (w windows-to-delete)
+                  (delete-window w))
+                ;;                   (when buffer-to-switch
+                ;;                     (switch-to-buffer buffer-to-switch))
+                ))
+          (select-frame curr-frame))))))
 
 (defvar phw-edit-area-creators nil)
 
@@ -3322,10 +3299,6 @@ an error is reported."
                    (phw-select-edit-window)
                  (phw-error "switch-to-buffer: Can not switch to %s in an phw-window!"
                             (ad-get-arg 0)))))
-          ((phw-buffer-is-dedicated-special-buffer-p (ad-get-arg 0))
-           (if (get-buffer-window (ad-get-arg 0) phw-frame)
-               (select-window (get-buffer-window (ad-get-arg 0) phw-frame))
-             (phw-error "switch-to-buffer: Can only switch to visible special phw-buffers!")))
           (t ;; normal buffers
            (if (member (car (phw-where-is-point)) '(phw compile))
                (if (member 'switch-to-buffer phw-layout-always-operate-in-edit-window)

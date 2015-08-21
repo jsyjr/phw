@@ -565,12 +565,6 @@ otherwise remove it.  If PRE is non-null then the hooks are
                 (case phw-split-edit-window-after-start
                   (horizontal (split-window-horizontally))
                   (vertical (split-window-vertically))))
-
-              ;; now we synchronize all PHW-windows
-              (phw-window-sync)
-
-              ;; now update all the PHW-buffer-modelines
-              (phw-mode-line-format)
               )
           (error
            (phw-clean-up-after-activation-failure

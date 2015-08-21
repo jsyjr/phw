@@ -1,3 +1,5 @@
+There is always a PHW, even if termporarily hidden.
+
 ;; Navigation
 C-x o		Alternate between current edit window and PCW
 C-. .		Jomp to PCW (of if in PCW then cycle)
