@@ -1,15 +1,15 @@
 There is always a PHW, even if termporarily hidden.
 
 ;; Navigation
-C-x o		Alternate between current edit window and PCW
-C-. .		Jomp to PCW (of if in PCW then cycle)
+C-x o		Alternate between current edit window and PHW
+C-. .		Jomp to PHW (of if in PHW then cycle)
 C-. n		Jump to next edit window
 C-. p		Jump to previous edit window
 C-. 1-9		Jump to edit window N (or if in edit window N then cycle)
 
 ;; Moving buffers between windows
-C-. m .		Send selected buffer to PCW and mark for PCW
-C-. m 1-9	Send selected buffer to edit window N and unmark for PCW
+C-. m .		Send selected buffer to PHW and mark for PHW
+C-. m 1-9	Send selected buffer to edit window N and unmark for PHW
 
 ;; Swap window contents
 C-. t		Swap/transpose contents of current edit window and next
@@ -19,7 +19,26 @@ C-. /		Cycle: unlocked, max, min
 
 
 
-PCW
+PHW
 edit-N
 edit-N / min
 edit-N / max
+
+Buffer local variables:
+phw-window: nil (=> not local) 'phw or N (=> edit)
+phw-size-edit: nil (=> not local, dyn), t (=> max)
+phw-size-phw:  nil (=> not local, dyn), t (=> min)
+
+
+ PHW |   Editr   |
+ low | nil |  t  |
+-----+-----+-----+
+ nil |	4  |  3  |
+-----+-----+-----+
+  t  |	4  |  3  |
+-----+-----+-----+
+
+1: minimize PHW
+2: fit PHW
+3: fit edit
+4: maximize PHW

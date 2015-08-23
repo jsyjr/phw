@@ -105,10 +105,6 @@
 (defvar phw-major-mode-selected-source nil
   "Major-mode of currently selected source.")
 
-(defvar phw-item-in-tree-buffer-selected nil
-  "Only true if any item in any tree-buffer has been selected in recent
-command.")
-
 ;; Klaus Berndl <klaus.berndl@sdm.de>: FRAME-LOCAL
 (defvar phw-minor-mode nil
   "Do not set this variable directly. Use `phw-activate' and
@@ -238,17 +234,23 @@ See also `phw-before-activate-hook'."
 (defvar phw-mode-map nil
   "Internal key-map for PHW minor mode.")
 
-(defcustom phw-common-prefix "C-."
+(defcustom phw-common-prefix "C-,"
   ""
   :group 'phw
   :type 'key-sequence)
 
 (defcustom phw-key-map
   '(phw-common-prefix
+       ; Rotate buffers within a window
     . ((t "n"  phw-window-display-next)
        (t "p"  phw-window-display-previous)
 
-       (t "."  phw-dwim-goto-edit-window-or-phw)
+       ; Buffer display size control
+       (t "/"  phw-toggle-fit-on-focus)
+
+       ; Move focus to different windows (select)
+       (t ","  phw-dwim-goto-edit-window-or-phw)
+       (t "."  phw-goto-most-recent-window)
        (t "f"  phw-goto-edit-window-forward)
        (t "b"  phw-goto-edit-window-backward)
        (t "1"  phw-goto-edit-window-1-or-display-next)
@@ -261,7 +263,8 @@ See also `phw-before-activate-hook'."
        (t "8"  phw-goto-edit-window-8-or-display-next)
        (t "9"  phw-goto-edit-window-9-or-display-next)
 
-       (t "m." phw-dwim-move-buffer-to-edit-window-or-phw)
+       ; Move current buffer and focus to a new window
+       (t "m," phw-dwim-move-buffer-to-edit-window-or-phw)
        (t "mf" phw-move-buffer-to-edit-window-forward)
        (t "mb" phw-move-buffer-to-edit-window-backward)
        (t "m1" phw-move-buffer-to-edit-window-1)
@@ -274,7 +277,9 @@ See also `phw-before-activate-hook'."
        (t "m8" phw-move-buffer-to-edit-window-8)
        (t "m9" phw-move-buffer-to-edit-window-9)
 
-       (t "x." phw-dwim-exchange-buffers-edit-window-and-phw)
+       ; Exchange buffers between source and destination window.
+       ; Focus follows current buffer.
+       (t "x," phw-dwim-exchange-buffers-edit-window-and-phw)
        (t "xf" phw-exchange-buffers-edit-window-forward)
        (t "xb" phw-exchange-buffers-edit-window-backward)
        (t "x1" phw-exchange-buffers-edit-window-1)
@@ -366,60 +371,9 @@ macro must be written explicitly, as in \"C-c SPC\".
                    (phw-add-to-minor-modes))))
 
 ;;;###autoload
-(defun phw-activate ()
-  "Activates PHW and creates the special buffers for the choosen layout.
-For the layout see `phw-layout-name'. This function raises always the
-PHW-frame if called from another frame. This is the same as calling
-`phw-minor-mode' with a positive argument."
-  (interactive)
-  (phw-minor-mode 1))
-
-(defun phw-activate-internal ()
-  "Activates the PHW and creates all the buffers and draws the PHW-screen
-with the actually chosen layout \(see `phw-layout-name'). This function raises
-always the PHW-frame if called from another frame."
-
-  (phw-activate--impl)
-  phw-minor-mode)
-
-
-(defun phw-clean-up-after-activation-failure (msg err)
-  "Complete cleanup of all PHW-setups and report an error with message MSG."
-  (let ((phw-minor-mode t))
-    (phw-deactivate-internal t))
-  (setq phw-minor-mode nil)
-  (force-mode-line-update t)
-  (error "PHW: %s (error-type: %S, error-data: %S)" msg (car err) (cdr err)))
-
 (defvar phw-last-window-config-before-deactivation nil
-  "Contains the last `phw-current-window-configuration' directly before
+  "Contains the last `current-window-configuration' directly before
 PHW has been deactivated. Do not set this variable!")
-
-(defvar phw-temporary-changed-emacs-variables-alist nil
-  "Internal alist which stores old values of emacs variables/options which
-have to be changed during running PHW. Use only `phw-modify-emacs-variable'
-for modifying this alist.")
-
-(defun phw-modify-emacs-variable (var action &optional new-value)
-  "Stores or restores the old value of the Emacs-variable symbol VAR.
-VAR has to be a bound symbol for a variable. ACTION is either 'store or
-'restore. The optional arg NEW-VALUE is only used when ACTION is 'store and is
-that value VAR should be set to. After calling with ACTION is 'restore the
-value of VAR is as before storing a NEW-VALUE for variable-symbol VAR."
-  (case action
-    (store
-     (or (phw-find-assoc var phw-temporary-changed-emacs-variables-alist)
-         (progn
-           (setq phw-temporary-changed-emacs-variables-alist
-                 (phw-add-assoc (cons var (symbol-value var))
-                                phw-temporary-changed-emacs-variables-alist))
-           (set var new-value))))
-    (restore
-     (let ((elem (phw-find-assoc var phw-temporary-changed-emacs-variables-alist)))
-       (when elem
-         (set var (cdr elem))
-         (setq phw-temporary-changed-emacs-variables-alist
-               (phw-remove-assoc var phw-temporary-changed-emacs-variables-alist)))))))
 
 (defun update-autocontrol (func pre add)
   "Add or remove FUNC from various command hooks.
@@ -448,9 +402,28 @@ otherwise remove it.  If PRE is non-null then the hooks are
   (update-autocontrol 'phw-layout-post-command-hook    nil add)
   (update-autocontrol 'phw-handle-major-mode-visibilty nil add))
 
-(defun phw-activate--impl ()
-  "See `phw-activate'.  This is the implementation of PHW activation."
-  (when (or (null phw-frame) (not (frame-live-p phw-frame)))
+(defun phw-activate ()
+  "Activates PHW and creates the special buffers for the choosen layout.
+For the layout see `phw-layout-name'. This function raises always the
+PHW-frame if called from another frame. This is the same as calling
+`phw-minor-mode' with a positive argument."
+  (interactive)
+  (phw-minor-mode 1))
+
+(defun phw-clean-up-after-activation-failure (msg err)
+  "Complete cleanup of all PHW-setups and report an error with message MSG."
+  (let ((phw-minor-mode t))
+    (phw-deactivate-internal t))
+  (setq phw-minor-mode nil)
+  (force-mode-line-update t)
+  (error "PHW: %s (error-type: %S, error-data: %S)" msg (car err) (cdr err)))
+
+(defun phw-activate-internal ()
+  "Activates the PHW and creates all the buffers and draws the PHW-screen
+with the actually chosen layout \(see `phw-layout-name'). This function raises
+always the PHW-frame if called from another frame."
+  (when (or (null phw-frame)
+            (not (frame-live-p phw-frame)))
     (setq phw-frame (selected-frame)))
 
   (if phw-minor-mode
@@ -463,12 +436,6 @@ otherwise remove it.  If PRE is non-null then the hooks are
     (let ((debug-on-error debug-on-error))
       ;; we activate only if all before-hooks return non nil
       (when (run-hook-with-args-until-failure 'phw-before-activate-hook)
-
-        ;; temporary changing some emacs-vars
-        (when (< max-specpdl-size 3000)
-          (phw-modify-emacs-variable 'max-specpdl-size 'store 3000))
-        (when (< max-lisp-eval-depth 1000)
-          (phw-modify-emacs-variable 'max-lisp-eval-depth 'store 1000))
 
         (condition-case err-obj
             (progn
@@ -513,7 +480,6 @@ otherwise remove it.  If PRE is non-null then the hooks are
               ;; ediff-stuff; we operate here only with symbols to avoid bytecompiler
               ;; warnings
               (phw-activate-ediff-compatibility)
-
               )
           (error
            ;;          (backtrace)
@@ -594,11 +560,12 @@ otherwise remove it.  If PRE is non-null then the hooks are
         (condition-case err-obj
             ;;now take a snapshot of the current window configuration
             (setq phw-activated-window-configuration
-                  (phw-current-window-configuration))
+                  (current-window-configuration))
           (error
            (phw-clean-up-after-activation-failure
             "Errors during the snapshot of the windows-configuration." err-obj)))
-        ))))
+        )))
+  phw-minor-mode)
 
 
 ;;;###autoload
@@ -615,7 +582,7 @@ otherwise remove it.  If PRE is non-null then the hooks are
               (run-hook-with-args-until-failure 'phw-before-deactivate-hook))
 
       (setq phw-last-window-config-before-deactivation
-            (phw-current-window-configuration))
+            (current-window-configuration))
 
       ;; deactivating the adviced functions
       (dolist (adviced-set-elem phw-adviced-function-sets)
@@ -649,7 +616,6 @@ otherwise remove it.  If PRE is non-null then the hooks are
               ;; first we make all windows of the PHW-frame not dedicated and
               ;; then we delete all PHW-windows
               (phw-select-edit-window)
-              (phw-make-windows-not-dedicated phw-frame)
 
               ;; deletion of all windows. (All other advices are already
               ;; disabled!)
@@ -697,7 +663,6 @@ otherwise remove it.  If PRE is non-null then the hooks are
            ;; at least all other windows
            (phw-warning "phw-deactivate-internal (error-type: %S, error-data: %S)"
                         (car oops) (cdr oops))
-           (ignore-errors (phw-make-windows-not-dedicated phw-frame))
            (ignore-errors (delete-other-windows))))
 
         (if (get 'phw-frame 'phw-new-frame-created)
@@ -715,10 +680,6 @@ otherwise remove it.  If PRE is non-null then the hooks are
       (setq phw-activated-window-configuration nil)
 
       (setq phw-minor-mode nil)
-
-      ;; restoring the value of temporary modified vars
-      (phw-modify-emacs-variable 'max-specpdl-size 'restore)
-      (phw-modify-emacs-variable 'max-lisp-eval-depth 'restore)
       ))
 
   (if (null phw-minor-mode)
@@ -769,7 +730,7 @@ exist."
     (save-excursion
       (dolist (file files)
 	(if (save-match-data
-              (and (string-match "\\(silentcomp\\|tree-buffer\\|phw.*\\)\\.el$" file)
+              (and (string-match "\\(phw.*\\)\\.el$" file)
                    (not (string-match "phw-autoloads" file))))
             (phw-compile-file-if-necessary file force-all))))))
 

@@ -863,101 +863,6 @@ If `window-system' is nil then a simple message is displayed in the echo-area."
           t)
       (message (concat title " " message-str)))))
 
-;; some first approaches to display informations in a temp-window
-
-;; (defvar phw-window-config-before-msg-display nil)
-
-;; (defun phw-display-temp-message-1 (msg-title msg-content)
-;;   (require 'wid-edit)
-;;   (setq phw-window-config-before-msg-display
-;;         (phw-current-window-configuration))
-;;   (with-current-buffer (get-buffer-create msg-title)
-;;     (switch-to-buffer-other-window (current-buffer))
-;;     (kill-all-local-variables)
-;;     (let ((inhibit-read-only t))
-;;       (erase-buffer))
-;;     (widget-insert msg-content)
-;;     (widget-insert "\n\n")
-;;     ;; Insert the Save button
-;;     (widget-create 'push-button
-;;                    :button-keymap phw-upgrade-button-keymap ; XEmacs
-;;                    :keymap phw-upgrade-button-keymap ; Emacs
-;;                    :notify (lambda (&rest ignore)
-;;                              (when phw-window-config-before-msg-display
-;;                                (ignore-errors
-;;                                  (phw-set-window-configuration
-;;                                   phw-window-config-before-msg-display))
-;;                                (setq phw-window-config-before-msg-display nil)))
-;;                    "OK")
-;;     (widget-setup)
-;;     (goto-char (point-min))))
-
-
-;; (defun phw-display-temp-message-2 (msg-title msg-content)
-;;   (require 'wid-edit)
-;;   (setq phw-window-config-before-msg-display
-;;         (phw-current-window-configuration))
-;;   (with-output-to-temp-buffer msg-title
-;;     (widget-insert msg-content)
-;;     (widget-insert "\n\n")
-;;     ;; Insert the Save button
-;;     (widget-create 'push-button
-;;                    :button-keymap phw-upgrade-button-keymap ; XEmacs
-;;                    :keymap phw-upgrade-button-keymap ; Emacs
-;;                    :notify (lambda (&rest ignore)
-;;                              (when phw-window-config-before-msg-display
-;;                                (ignore-errors
-;;                                  (phw-set-window-configuration
-;;                                   phw-window-config-before-msg-display))
-;;                                (setq phw-window-config-before-msg-display nil)))
-;;                    "OK")
-;;     (widget-setup)
-;;     (goto-char (point-min))))
-
-;; (defvar phw-user-information-msg-buffer nil)
-
-;; (defun phw-display-temp-message (msg-content)
-;;   (require 'wid-edit)
-;;   (progn
-;;     (setq phw-user-information-msg-buffer
-;;           (get-buffer-create "*PHW User-Information*"))
-;;     (cond
-;;      ((not (get-buffer-window phw-user-information-msg-buffer))
-;;       (let ((split-window-keep-point nil)
-;;             (window-min-height 2))
-;;         ;; maybe leave two lines for our window because of the normal
-;;         ;; `raised' modeline in Emacs 21
-;;         ;; TODO: Klaus Berndl <klaus.berndl@sdm.de>: adjust this for Xemacs!
-;;         (select-window
-;;          (split-window-vertically
-;;           (if (and (fboundp 'face-attr-construct)
-;;                    (plist-get (face-attr-construct 'modeline) :box))
-;;               -3 -2)))
-;;         (switch-to-buffer phw-user-information-msg-buffer)))
-;;      ((not (eq (current-buffer) phw-user-information-msg-buffer))
-;;       (select-window (get-buffer-window phw-user-information-msg-buffer))))
-;;     ;; insert now the msg-content
-;;     (let ((inhibit-read-only t))
-;;       (erase-buffer))
-;;     (widget-insert msg-content)
-;;     (widget-insert "\n\n")
-;;     ;; Insert the Save button
-;;     (widget-create 'push-button
-;;                    :button-keymap phw-upgrade-button-keymap ; XEmacs
-;;                    :keymap phw-upgrade-button-keymap ; Emacs
-;;                    :notify (lambda (&rest ignore)
-;;                              (set-buffer phw-user-information-msg-buffer)
-;;                              (condition-case nil
-;;                                  (while (get-buffer-window phw-user-information-msg-buffer)
-;;                                    (delete-window (get-buffer-window phw-user-information-msg-buffer)))
-;;                                (error nil))
-;;                              (kill-buffer phw-user-information-msg-buffer)
-;;                              (setq phw-user-information-msg-buffer nil))
-                             
-;;                    "OK")
-;;     (widget-setup)
-;;     ;; (setq buffer-read-only t)
-;;     (message "Click [OK] or hit q for restoring previous window-layout.")))
 
 ;; ----- Information-display - errors, warnings, infos ----
 
@@ -1709,22 +1614,6 @@ returned. Otherwise the return value of BODY is returned. Runs encapsulated in
 
 (put 'phw-exec-in-window 'lisp-indent-function 1)
 
-(defun phw-make-windows-not-dedicated (&optional frame)
-  "Make all windows of FRAME not dedicated."
-  (mapc (function (lambda (w)
-                    (set-window-dedicated-p w nil)))
-        (phw-window-list (or frame (selected-frame)))))
-
-(defun phw-set-windows-dedicated-state (buf-list state)
-  "For every buffer in BUF-LIST set its windows dedicated-state to STATE if
-visible in the `phw-frame'."
-  (mapc (function (lambda (b)
-                    (when (get-buffer-window b phw-frame)
-                      (set-window-dedicated-p
-                       (get-buffer-window b phw-frame) state))))
-        buf-list))
-
-
 (defun phw-window-in-window-list-number (win-list &optional window)
   "Return the number of WINDOW in the window-list WIN-LIST.
 The left-top-most window of the frame has number 1. The other windows have
@@ -1787,30 +1676,6 @@ rounded integer."
 (defun phw-ring-elements (ring)
   "Return a list of the lements of RING."
   (mapcar #'identity (cddr ring)))
-
-;;; ----- Menu stuff ---------------------------------------
-
-(defvar phw-max-submenu-depth 4
-  "The maximum depth of nesting submenus for the tree-buffers.")
-
-(defun phw-create-menu-user-ext-type (curr-level max-level)
-  "Creates the :type-definition for the *-menu-user-extension options.
-This allows nested submenus for the popup-menus of the tree-buffers up to a
-maximum level of MAX-LEVEL. CURR-LEVEL must be 1 when used in a
-defcustom-clause and has to be <= MAX-LEVEL."
-  (list 'repeat (delq nil
-                      (list 'choice ':tag "Menu-entry" ':menu-tag "Menu-entry"
-                            ':value '(ignore "")
-                            (list 'const ':tag "Separator" ':value '("---"))
-                            (list 'list ':tag "Menu-command"
-                                  (list 'function ':tag "Function" ':value 'ignore)
-                                  (list 'string ':tag "Entry-name"))
-                            (if (= curr-level max-level)
-                                nil
-                              (list 'cons ':tag "Submenu"
-                                    (list 'string ':tag "Submenu-title")
-                                    (phw-create-menu-user-ext-type (1+ curr-level)
-                                                                   max-level)))))))
 
 ;;; ----- byte-compiling stuff ----------------------------
 

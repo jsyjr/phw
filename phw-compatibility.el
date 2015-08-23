@@ -123,43 +123,41 @@ BUFFER is displayed in an edit-window!"
     (if (phw-buffer-obj "*Buffer List*")
         (bury-buffer (phw-buffer-obj "*Buffer List*")))))
 
-;; package master.el (only Emacs >= 22.X) ------------------------------------
+;; package master.el ---------------------------------------------------------
 
 ;; The adviced version of switch-to-buffer-other-window can redraw the layout
 ;; (e.g. if the buffer in the compile-window is the slave and the
 ;; compile-window has been made visible), so <window> in the code below can be
 ;; a destroyed window-object! we have to prevent from this (e.g. by selecting
 ;; the window before by number).
-(when-phw-running-emacs
- (defphw-advice master-says around phw-compatibility-advices
-   "Makes the function compatible with PHW."
-   (if (or (not phw-minor-mode)
-           (not (equal (selected-frame) phw-frame)))
-       (phw-with-original-basic-functions ad-do-it)
-     (if (null (buffer-live-p (phw-buffer-obj master-of)))
-         (error "Slave buffer has disappeared")
-       (let ((window  (selected-window))
-             (point-loc (phw-where-is-point))
-             (p (point)))
-         (if (not (eq (window-buffer window) (phw-buffer-obj master-of)))
-             (switch-to-buffer-other-window master-of))
-         (if (ad-get-arg 0)
-             (condition-case nil
-                 (apply (ad-get-arg 0) (ad-get-arg 1))
-               (error nil)))
-         (select-window (case (car point-loc)
-                          (phw
-                           (phw-get-phw-window-by-number (cdr point-loc)))
-                          (edit
-                           (phw-get-edit-window-by-number (cdr point-loc)))
-                          (compile
-                           phw-compile-window)
-                          (minibuf
-                           (minibuffer-window phw-frame))
-                          (other-dedicated
-                           (phw-get-window-by-number (cdr point-loc)))))
-         (goto-char (point))))))
-   )
+(defphw-advice master-says around phw-compatibility-advices
+  "Makes the function compatible with PHW."
+  (if (or (not phw-minor-mode)
+          (not (equal (selected-frame) phw-frame)))
+      (phw-with-original-basic-functions ad-do-it)
+    (if (null (buffer-live-p (phw-buffer-obj master-of)))
+        (error "Slave buffer has disappeared")
+      (let ((window  (selected-window))
+            (point-loc (phw-where-is-point))
+            (p (point)))
+        (if (not (eq (window-buffer window) (phw-buffer-obj master-of)))
+            (switch-to-buffer-other-window master-of))
+        (if (ad-get-arg 0)
+            (condition-case nil
+                (apply (ad-get-arg 0) (ad-get-arg 1))
+              (error nil)))
+        (select-window (case (car point-loc)
+                         (phw
+                          (phw-get-phw-window-by-number (cdr point-loc)))
+                         (edit
+                          (phw-get-edit-window-by-number (cdr point-loc)))
+                         (compile
+                          phw-compile-window)
+                         (minibuf
+                          (minibuffer-window phw-frame))
+                         (other-dedicated
+                          (phw-get-window-by-number (cdr point-loc)))))
+        (goto-char (point))))))
 
 ;; package scroll-all.el --------------------------------------------------
 
@@ -185,26 +183,24 @@ BUFFER is displayed in an edit-window!"
 ;; Electric-pop-up-window advice instaed of this advice because otherwise
 ;; some commands of the popup-menus of the phw-buffers would not work - this
 ;; comes from the save-window-excursion in the the tmm.
-(when-phw-running-emacs
- (defphw-advice tmm-prompt around phw-compatibility-advices
-   "Make it compatible with PHW."
-   (if (or (not phw-minor-mode)
-           (not (equal (selected-frame) phw-frame)))
-       (phw-with-original-basic-functions ad-do-it)
-     ;; we set temporally `phw-other-window-behavior' to a function which
-     ;; always selects the "next" window after the
-     ;; `phw-last-edit-window-with-point'
-     (let ((phw-other-window-behavior
-            (lambda (win-list edit-win-list phw-win-list comp-win
-                              mini-win point-loc nth-win)
-              (phw-next-listelem edit-win-list
-                                 phw-last-edit-window-with-point)))
-           ;; we must not handle the tmm-stuff as compilation-buffer
-           (phw-compilation-buffer-names nil)
-           (phw-compilation-major-modes nil)
-           (phw-compilation-predicates nil))
-       ad-do-it)))
- )
+(defphw-advice tmm-prompt around phw-compatibility-advices
+  "Make it compatible with PHW."
+  (if (or (not phw-minor-mode)
+          (not (equal (selected-frame) phw-frame)))
+      (phw-with-original-basic-functions ad-do-it)
+    ;; we set temporally `phw-other-window-behavior' to a function which
+    ;; always selects the "next" window after the
+    ;; `phw-last-edit-window-with-point'
+    (let ((phw-other-window-behavior
+           (lambda (win-list edit-win-list phw-win-list comp-win
+                             mini-win point-loc nth-win)
+             (phw-next-listelem edit-win-list
+                                phw-last-edit-window-with-point)))
+          ;; we must not handle the tmm-stuff as compilation-buffer
+          (phw-compilation-buffer-names nil)
+          (phw-compilation-major-modes nil)
+          (phw-compilation-predicates nil))
+      ad-do-it)))
 
 ;; ediff-stuff ---------------------------------------------------------------
 
@@ -219,7 +215,7 @@ BUFFER is displayed in an edit-window!"
   (if (and phw-minor-mode
            (equal (selected-frame) phw-frame))
       (progn
-        (setq phw-before-ediff-window-config (phw-current-window-configuration))
+        (setq phw-before-ediff-window-config (current-window-configuration))
         (if phw-run-ediff-in-phw-frame
             ;; !!!! we must delete all PHW-windows and the compile-window so
             ;; ediff can manage the whole phw-frame concerning its windows!
@@ -296,9 +292,8 @@ does all necessary after finishing ediff."
 ;; one will be the deleted one...how to go back to that window we have to go
 ;; back??
 
-(when-phw-running-emacs
- (defphw-advice view-mode-exit around phw-compatibility-advices
-   "Makes view-mode compatible with PHW.
+(defphw-advice view-mode-exit around phw-compatibility-advices
+  "Makes view-mode compatible with PHW.
 
 If there is no compile-window \(i.e. the buffer with view-mode is not
 displayed in the special compile-window of PHW) then nothing special is done
@@ -311,21 +306,20 @@ of view-mode is disabled only `view-no-disable-on-exit' is taken into acount.
 The compile-window will be shrinked down with
 `phw-toggle-compile-window-height' and the last edit-window with point will be
 selected afterwards."
-   (if (and (boundp 'phw-minor-mode)
-            phw-minor-mode
-            (eq (selected-frame) phw-frame)
-            (eq (selected-window) phw-compile-window))
-       (when view-mode
-         (or view-no-disable-on-exit
-             (view-mode-disable))
-;;          (when (ad-get-arg 1) ;; = exit-action
-;;            (setq view-exit-action nil)
-;;            (funcall (ad-get-arg 1) (current-buffer)))
-         (force-mode-line-update)
-         (phw-toggle-compile-window-height -1)
-         (select-window phw-last-edit-window-with-point))
-     ad-do-it))
-)
+  (if (and (boundp 'phw-minor-mode)
+           phw-minor-mode
+           (eq (selected-frame) phw-frame)
+           (eq (selected-window) phw-compile-window))
+      (when view-mode
+        (or view-no-disable-on-exit
+            (view-mode-disable))
+        ;;          (when (ad-get-arg 1) ;; = exit-action
+        ;;            (setq view-exit-action nil)
+        ;;            (funcall (ad-get-arg 1) (current-buffer)))
+        (force-mode-line-update)
+        (phw-toggle-compile-window-height -1)
+        (select-window phw-last-edit-window-with-point))
+    ad-do-it))
 
 
 ;; not yet done ----------------------------------------------------------------
