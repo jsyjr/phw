@@ -1,26 +1,16 @@
 ;;; phw.el --- a code browser for Emacs
 
-;; Copyright (C) 2000-2015 Jesper Nordenberg,
-;;                         Klaus Berndl,
-;;                         Kevin A. Burton,
-;;                         John S. Yates, Jr.,
-;;                         Free Software Foundation, Inc.
-
-;; Author: Jesper Nordenberg <mayhem@home.se>
-;;         Klaus Berndl <klaus.berndl@sdm.de>
-;;         Kevin A. Burton <burton@openprivacy.org>
-;; Maintainer: John S. Yates, Jr. <john@yates-sheets.org>
-;; Keywords: window, tools
+;; Copyright (C) 2015 John S. Yates, Jr.
 
 ;; This program is free software; you can redistribute it and/or modify it under
 ;; the terms of the GNU General Public License as published by the Free Software
-;; Foundation; either version 2, or (at your option) any later version.
-
+;; Foundation; either version 3, or (at your option) any later version.
+;;
 ;; This program is distributed in the hope that it will be useful, but WITHOUT
 ;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 ;; FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
 ;; details.
-
+;;
 ;; You should have received a copy of the GNU General Public License along with
 ;; GNU Emacs; see the file COPYING.  If not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
@@ -37,32 +27,13 @@
 ;; more than just the output of compilation activities.  Hence I have
 ;; renamed that window the Persistent Horizontal Window (PHW).
 
-
-;; We need this libraries already here if we miss some requirements
-(require 'phw-util)
-
-;; rest of phw loads
-(require 'phw-layout)
-(require 'phw-compilation)
-(require 'phw-compatibility)
-(require 'phw-autogen)
-
-(eval-when-compile
-  ;; to avoid compiler grips
-  (require 'cl))
-
 ;;====================================================
 ;; Variables
 ;;====================================================
-(defvar phw-major-mode-selected-source nil
-  "Major-mode of currently selected source.")
 
 (defvar phw-minor-mode nil
   "Do not set this variable directly. Use `phw-activate' and
 `phw-deactivate' or `phw-minor-mode'.!")
-
-(defvar phw-activated-window-configuration nil
-  "Window configuration used after the PHW is activated.")
 
 ;;====================================================
 ;; Customization
@@ -93,77 +64,6 @@ PHW-windows are visible this text is only display in the modeline if the
 PHW-windows are hidden."
   :group 'phw
   :type 'string)
-
-(defcustom phw-run-ediff-in-phw-frame t
-  "*Run ediff-sessions in the same frame as PHW is running.
-If not nil then PHW ensures that ediff runs in the same frame as PHW and PHW
-restores exactly the \"before-ediff\"-window-layout after quiting ediff. If
-nil then ediff decides in which frame it will run - depending on the current
-window-layout \(e.g. if the phw-windows are currently hidden) this can be the
-phw-frame but this can also be a newly created frame or any other frame."
-  :group 'phw
-  :type 'boolean)
-
-
-(defcustom phw-activate-before-layout-draw-hook nil
-  "*Hook run at the end of activating PHW by `phw-activate'.
-These hooks run after all the internal setup process but directly before\(!)
-drawing the layout specified in `phw-layout' \(means before dividing the frame
-into several windows). A senseful using of this hook can be maximizing the
-Emacs-frame for example, because this should be done before the layout is
-drawn because PHW computes the size of the PHW-windows with the current frame
-size! If you need a hook-option for the real end of the activating process
-\(i.e. after the layout-drawing) look at `phw-activate-hook'.
-
-IMPORTANT: The difference between this hook and
-`phw-redraw-layout-before-hook' is that the latter one is evaluated always
-before the layout is redrawn \(for example after calling `phw-redraw-layout')
-whereas the former one \(this hook) is only evaluated exactly once during the
-activation-process of PHW. So during the activation process there is the
-following sequence of hooks:
-1. 'phw-activate-before-layout-draw-hook' \(this one)
-2. `phw-redraw-layout-before-hook'
-3. <Drawing the layout>
-4. `phw-redraw-layout-after-hook'
-5. `phw-activate-hook'"
-  :group 'phw-hook
-  :type 'hook)
-
-
-(defcustom phw-before-activate-hook nil
-  "*Hook run at the beginning of activating PHW by `phw-activate'.
-These hooks run before any other tasks of the activating process are
-performed. If any of these hooks returns nil then PHW will not be activated!
-
-This can be used to check some conditions and then only start PHW if all
-conditions are true. For example a function could be added which returns only
-nil if Gnus is running. Then calling `phw-activate' or `phw-minor-mode' will
-only start PHW if Gnus is not already running."
-  :group 'phw-hook
-  :type 'hook)
-
-
-(defcustom phw-activate-hook nil
-  "*Hook run at the end of activating PHW by `phw-activate'.
-These hooks run at the real end of the activating process, means after the
-layout has been drawn!. If you need hooks which are run direct before the
-layout-drawing look at `phw-activate-before-layout-draw-hook'."
-  :group 'phw-hook
-  :type 'hook)
-
-(defcustom phw-deactivate-hook nil
-  "*Hook run at the end of deactivating PHW by `phw-deactivate'.
-These hooks run before the phw-layout is cleared!"
-  :group 'phw-hook
-  :type 'hook)
-
-(defcustom phw-before-deactivate-hook nil
-  "*Hook run at the beginning of deactivating PHW by `phw-deactivate'.
-These hooks run before any other tasks of the deactivating process are
-performed. If any of these hooks returns nil then PHW will not be deactivated!
-See also `phw-before-activate-hook'."
-  :group 'phw-hook
-  :type 'hook)
 
 
 ;;====================================================
@@ -204,44 +104,44 @@ See also `phw-before-activate-hook'."
        (t "."  phw-goto-most-recent-window)
        (t "f"  phw-goto-edit-window-forward)
        (t "b"  phw-goto-edit-window-backward)
-       (t "1"  phw-goto-edit-window-1-or-display-next)
-       (t "2"  phw-goto-edit-window-2-or-display-next)
-       (t "3"  phw-goto-edit-window-3-or-display-next)
-       (t "4"  phw-goto-edit-window-4-or-display-next)
-       (t "5"  phw-goto-edit-window-5-or-display-next)
-       (t "6"  phw-goto-edit-window-6-or-display-next)
-       (t "7"  phw-goto-edit-window-7-or-display-next)
-       (t "8"  phw-goto-edit-window-8-or-display-next)
-       (t "9"  phw-goto-edit-window-9-or-display-next)
+       (t "1"  phw-goto-edit-window-N)
+       (t "2"  phw-goto-edit-window-N)
+       (t "3"  phw-goto-edit-window-N)
+       (t "4"  phw-goto-edit-window-N)
+       (t "5"  phw-goto-edit-window-N)
+       (t "6"  phw-goto-edit-window-N)
+       (t "7"  phw-goto-edit-window-N)
+       (t "8"  phw-goto-edit-window-N)
+       (t "9"  phw-goto-edit-window-N)
 
        ; Move current buffer and focus to a new window
        (t "m," phw-dwim-move-buffer-to-edit-window-or-phw)
        (t "mf" phw-move-buffer-to-edit-window-forward)
        (t "mb" phw-move-buffer-to-edit-window-backward)
-       (t "m1" phw-move-buffer-to-edit-window-1)
-       (t "m2" phw-move-buffer-to-edit-window-2)
-       (t "m3" phw-move-buffer-to-edit-window-3)
-       (t "m4" phw-move-buffer-to-edit-window-4)
-       (t "m5" phw-move-buffer-to-edit-window-5)
-       (t "m6" phw-move-buffer-to-edit-window-6)
-       (t "m7" phw-move-buffer-to-edit-window-7)
-       (t "m8" phw-move-buffer-to-edit-window-8)
-       (t "m9" phw-move-buffer-to-edit-window-9)
+       (t "m1" phw-move-buffer-to-edit-window-N)
+       (t "m2" phw-move-buffer-to-edit-window-N)
+       (t "m3" phw-move-buffer-to-edit-window-N)
+       (t "m4" phw-move-buffer-to-edit-window-N)
+       (t "m5" phw-move-buffer-to-edit-window-N)
+       (t "m6" phw-move-buffer-to-edit-window-N)
+       (t "m7" phw-move-buffer-to-edit-window-N)
+       (t "m8" phw-move-buffer-to-edit-window-N)
+       (t "m9" phw-move-buffer-to-edit-window-N)
 
        ; Exchange buffers between source and destination window.
        ; Focus follows current buffer.
        (t "x," phw-dwim-exchange-buffers-edit-window-and-phw)
        (t "xf" phw-exchange-buffers-edit-window-forward)
        (t "xb" phw-exchange-buffers-edit-window-backward)
-       (t "x1" phw-exchange-buffers-edit-window-1)
-       (t "x2" phw-exchange-buffers-edit-window-2)
-       (t "x3" phw-exchange-buffers-edit-window-3)
-       (t "x4" phw-exchange-buffers-edit-window-4)
-       (t "x5" phw-exchange-buffers-edit-window-5)
-       (t "x6" phw-exchange-buffers-edit-window-6)
-       (t "x7" phw-exchange-buffers-edit-window-7)
-       (t "x8" phw-exchange-buffers-edit-window-8)
-       (t "x9" phw-exchange-buffers-edit-window-9)
+       (t "x1" phw-exchange-buffers-edit-window-N)
+       (t "x2" phw-exchange-buffers-edit-window-N)
+       (t "x3" phw-exchange-buffers-edit-window-N)
+       (t "x4" phw-exchange-buffers-edit-window-N)
+       (t "x5" phw-exchange-buffers-edit-window-N)
+       (t "x6" phw-exchange-buffers-edit-window-N)
+       (t "x7" phw-exchange-buffers-edit-window-N)
+       (t "x8" phw-exchange-buffers-edit-window-N)
+       (t "x9" phw-exchange-buffers-edit-window-N)
 
        ))
 
@@ -316,10 +216,56 @@ macro must be written explicitly, as in \"C-c SPC\".
                                                       " " (nth 1 elem)))
                              (define-key km (read-kbd-macro key-string) (nth 2 elem)))
                            km))
-                   ;; add the minor-mode and and the minor-mode-map to the
-                   ;; alists if not already contained. In this case just
-                   ;; replace the values in the alists
-                   (phw-add-to-minor-modes))))
+                   ;; Add/update minor-mode and its map in alists.
+                   (add-minor-mode 'phw-minor-mode
+                                   'phw-minor-mode-text phw-mode-map)
+                   ;; PHW minor mode doesn't work w/ Desktop restore.
+                   (when (boundp 'desktop-minor-mode-handlers)
+                     (add-to-list 'desktop-minor-mode-handlers
+                                  (cons 'phw-minor-mode 'ignore))))))
+
+(defvar phw-current-window 0)
+(defvar phw-current-edit 1)
+
+(defun phw-window-from-keys ()
+  "Return a window spec from last element of triggering key sequence.
+Mappings are:
+  '1'..'9'  : edit window N
+  ',' 'C-,' : alternate between PHW and current edit window
+  '.' 'C-.' : previous in edit windows ring
+  'f'       : next edit window
+  'b'       : previous edit window"
+  (let* ((keys (this-command-keys-vector))
+         (len  (length keys))
+         (last (elt keys (1- len))))
+    (cond
+     ((< ?0 last (1+ ?9))               ; edit window N
+      (- last ?0))
+     ((or (= last ?\,)                  ; alternate PHW and edit
+	  (= last (elt (kbd "C-,") 0)))
+      (if (zerop phw-current-window)
+	  phw-current-edit
+	0))
+     ((or (= last ?\.)                  ; pop to previous edit
+     	  (= last (elt (kbd "C-.") 0)))
+      -1)
+     ((= last ?f)                       ; next edit window
+      -2)
+     ((= last ?b)                       ; previous edit window
+      -3)
+     (t error "Unknown buffer key (%s)" last))))
+
+;;;###autoload
+(defun phw-goto-window ()
+  ""
+  (interactive)
+  (let ((target (phw-window-from-keys)))
+    (when (<= 0 target)
+      (setq phw-current-window target)
+      (when (< 0 target)
+        (setq phw-current-edit target)))
+    (message "Target edit window: %s  (current %s; edit %s)" target phw-current-window phw-current-edit)))
+
 
 ;;;###autoload
 (defvar phw-last-window-config-before-deactivation nil
