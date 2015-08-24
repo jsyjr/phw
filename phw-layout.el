@@ -25,106 +25,9 @@
 ;; GNU Emacs; see the file COPYING.  If not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-;; $Id$
-
-;;; Commentary:
-;;
-;; Contains functions for settings the PHW layout.
-;;
-;; This file is part of the PHW package which can be found at:
-;; http://phw.sourceforge.net
-
-;; This file has been re-implemented by Klaus Berndl <klaus.berndl@sdm.de>.
-;; What has been done:
-;; Completely rewritten the layout mechanism for better customizing, adding
-;; new layouts, better redrawing and more straightforward code.
-;; 1. Now all user-layouting is done by customizing the new option
-;;    `phw-layout-name' or by the command `phw-change-layout'. The function
-;;    `phw-redraw-layout' (formally known as 'phw-set-layout) can still be
-;;    called interactively. But it just redraws the layout specified in
-;;    `phw-layout-name'. All changes to the layout must be made by customizing
-;;    this new option. Please read the very detailed comment of
-;;    `phw-layout-name'!
-;; 2. Adding new layouts is now much easier and more straightforward: We have
-;;    now a main core-layout function (`phw-redraw-layout-full') which is the
-;;    "environment" for the specific "layout-functions". The core function
-;;    does first some layout independent actions, then calls the
-;;    "layout-function" for the name which has been set in `phw-layout-name'
-;;    and after that it does some layout independent actions again (see the
-;;    comments in this function). See the macro `phw-layout-define' and the
-;;    command `phw-create-new-layout'!
-;;
-;; Background-info: For each layout-type (phw-windows left, right, top and
-;; left-right) there is one function:
-;; 'phw-delete-window-phw-windows-[left|right|top|leftright]'.
-;; These functions follow these guide-lines:
-;; - Preconditions for these functions:
-;;   + the edit-area is splitted - at least in two edit-windows
-;;   + The function gets two arguments: The window to delete (if nil then the
-;;     current window has to be deleted) and the list of all current
-;;     edit-windows.
-;;   + These functions are always(!) called with deactivated advices of
-;;     `delete-window' function.
-;;   + These functions can only use `delete-window' of the set of maybe
-;;     adviced window functions, because of a bug in advice.el only one
-;;     functionﾴs advice can be deactivated within a advice itself!
-;; - What must they do: Doing the appropriate action (e.g.
-;;   `phw-delete-window-phw-windows-left' must delete the window. This action
-;;   must be done appropriate for the current PHW-layout type (see
-;;   postconditions)
-;; - Postcondition of these functions:
-;;   + The named edit-window must be deleted and all phw-windows in the
-;;     phw-frame must have the layout like before the delete.
-;;   + If the current window has been deleted then point must reside after
-;;     deletion in the next edit-window in a circular meaning (i.e. if the
-;;     last edit-window has been deleted, point must stay afterwards in the
-;;     first edit-window). If a window unequal the current window has been
-;;     deleted point must stay in the window before deletion at the same
-;;     place.
-;;
-;; New adviced intelligent window-functions as replacement for these originals:
-;; - `other-window'
-;; - `delete-window'
-;; - `delete-other-windows'
-;; - `delete-windows-on'
-;; - `split-window-horizontally'
-;; - `split-window-vertically'
-;; - `split-window'
-;; - `display-buffer'
-;; - `switch-to-buffer'
-;; - `switch-to-buffer-other-window'
-;; - `other-window-for-scrolling'
-;; - `balance-windows'
-;; The behavior of the adviced functions is:
-;; - All these function behaves exactly like their corresponding original
-;;   functions but they always act as if the edit-window(s) of PHW would be the
-;;   only window(s) of the PHW-frame. So the edit-window(s) of PHW seems to be
-;;   a normal Emacs-frame to the user.
-;; - If a persistent compile-window is used all buffers for which
-;;   `phw-compilation-buffer-p' returns not nil are handled in the
-;;   compile-window!
-;;
-
-;;; History
-;;
-;; For the ChangeLog of this file see the CVS-repository. For a complete
-;; history of the PHW-package see the file NEWS.
-
-;;; Code:
 
 (require 'phw-util)
 (require 'phw-compilation)
-
-(defgroup phw-layout nil
-  "Settings for the screen-layout of the Emacs code browser."
-  :group 'phw
-  :prefix "phw-")
-
-(defgroup phw-compilation nil
-  "Settings for the compile window of PHW."
-  :group 'phw-layout
-  :prefix "phw-")
-
 
 (defconst phw-layout-option-set-function
   (function (lambda (symbol value)
@@ -223,8 +126,7 @@ the special PHW-windows are visible or not \(see the command
 Regardless of the settings you define here: If you have destroyed or
 changed the PHW-screen-layout by any action you can always go back to this
 layout with `phw-redraw-layout'"
-  :group 'phw-compilation
-  :group 'phw-most-important
+  :group 'phw
   :initialize 'custom-initialize-default
   ;; we can not use here `phw-layout-option-set-function' because here we
   ;; must call `phw-redraw-layout-full' with NO-PHW-WINDOWS depending on the
@@ -289,7 +191,7 @@ The following values are possible:
 
 To restore the PHW-layout after such a buffer-enlarge just call
 `phw-toggle-compile-window-height' or `phw-redraw-layout'."
-  :group 'phw-compilation
+  :group 'phw
   :type '(radio (const :tag "After displaying a buffer in the compile-window"
                        :value after-display)
                 (const :tag "After selecting the compile window"
@@ -313,7 +215,7 @@ If nil then PHW does nothing to prevent being shrunken below the value of
 `phw-compile-window-height'.
 
 Default is t."
-  :group 'phw-compilation
+  :group 'phw
   :type 'boolean)
 
 
@@ -341,7 +243,7 @@ Any number:
 Max height in lines. If the number is less than 1.0 the height is a fraction
 of the frame height \(e.g. 0.33 results in a max-height of 1/3 the
 frame-height)."
-  :group 'phw-compilation
+  :group 'phw
   :type '(radio (const :tag "Compute best height"
                        :value best)
                 (const :tag "1/2 the frame height)"
@@ -352,7 +254,7 @@ frame-height)."
   "*`scroll-other-window' scrolls always the compile-window.
 For all details about the scroll-behavior of `scroll-other-window' see the
 advice documentation of `other-window-for-scrolling'."
-  :group 'phw-compilation
+  :group 'phw
   :type 'boolean)
 
 (defcustom phw-ignore-special-display 'compile-window
@@ -366,7 +268,7 @@ This means, that all values of `special-display-function',
 - never, i.e. special-dislay-handling depends on the values of the options
   `special-display-function', `special-display-buffer-names' and
   `special-display-regexps'."
-  :group 'phw-layout
+  :group 'phw
   :type '(radio (const :tag "When a persistent compile-window is used"
                        :value compile-window)
                 (const :tag "Always" :value always)
@@ -384,7 +286,7 @@ This means, that a value of not nil for `pop-up-frames' is ignored
   `phw-compile-window-height' is not nil - this is the default value.
 - always when PHW is active - that means no pop-up-frames when PHW is active
 - never, i.e. pop-up-frames is fully active when set."
-  :group 'phw-layout
+  :group 'phw
   :type '(radio (const :tag "When a persistent compile-window is used"
                        :value compile-window)
                 (const :tag "Always" :value always)
@@ -409,7 +311,7 @@ define if and when `display-buffer-function' should be ignored:
   not - this is the default value
 - never, the adviced version of `display-buffer' always uses the value of
   `display-buffer-function' if the value is a function."
-  :group 'phw-layout
+  :group 'phw
   :type '(radio (const :tag "When a persistent compile-window is used"
                        :value compile-window)
                 (const :tag "Always" :value always)
@@ -455,7 +357,7 @@ occur in these advices because they are very simple). Conclusion: If you want
 really all PHW-advices being disabled after deactivating PHW then you have to
 set this option to other values then 'before-activation. But setting this
 variable to this value is really completely save."
-  :group 'phw-layout
+  :group 'phw
   :type '(radio (const :tag "Split as before PHW-start"
                        :value before-activation)
                 (const :tag "Split as before last PHW-deactivation"
@@ -470,7 +372,7 @@ variable to this value is really completely save."
 (defcustom phw-windows-width 0.33
   "*The width of the PHW windows in columns for left- and right layouts.
 If the number is less than 1.0 the width is a fraction of the frame width."
-  :group 'phw-layout
+  :group 'phw
   :initialize 'custom-initialize-default
   :set phw-layout-option-set-function
   :type 'number)
@@ -478,7 +380,7 @@ If the number is less than 1.0 the width is a fraction of the frame width."
 (defcustom phw-windows-height 0.33
   "*The height of the PHW windows in lines for top layouts.
 If the number is less than 1.0 the width is a fraction of the frame height."
-  :group 'phw-layout
+  :group 'phw
   :initialize 'custom-initialize-default
   :set phw-layout-option-set-function
   :type 'number)
@@ -510,7 +412,7 @@ have always unfixed sizes) with Emacs < 22 if `phw-compile-window-height' is
 not nil.
 
 Per default no window-size fixing has been done."
-  :group 'phw-directories
+  :group 'phw
   :initialize 'custom-initialize-default
   :set (function (lambda (sym value)
                    (set sym value)
@@ -625,8 +527,7 @@ window\" for the command `other-window' or for scrolling another window
 
 This function has to handle all properly situations for itself.
 `phw-get-other-window-smart' is an example for such a function."
-  :group 'phw-layout
-  :group 'phw-most-important
+  :group 'phw
   :type '(radio (const :tag "Smart" :value smart)
                 (const :tag "All windows" all)
                 (const :tag "Only edit windows" only-edit)
@@ -647,7 +548,7 @@ function does simply nothing.
 
 Default is nil but it can also be useful to signal errors - so you see when
 call a function in a situation which is not supported by this function."
-  :group 'phw-layout
+  :group 'phw
   :type 'boolean)
 
 (defcustom phw-layout-always-operate-in-edit-window
@@ -669,7 +570,7 @@ or some other special reaction (depends on
 adviced functions for this.
 
 Per default this is only enabled for `switch-to-buffer'."
-  :group 'phw-layout
+  :group 'phw
   :type '(set (const :tag "delete-window"
                      :value delete-window)
               (const :tag "delete-other-windows"
@@ -709,7 +610,7 @@ the following is important:
   the sizes are stored.
 - The order of the sequence of the inserted window sizes doesn't matter
   because each size-pair is assigned to a buffer-name the sizes belong to."
-  :group 'phw-layout
+  :group 'phw
   :initialize 'custom-initialize-default
   :set phw-layout-option-set-function
   :type '(repeat (cons :tag "Window layout"
@@ -733,11 +634,11 @@ the following is important:
   "If non-nil, we will attempt to redraw the layout quickly.
 Please read also carefully the documentation of `phw-redraw-layout'."
   :type 'boolean
-  :group 'phw-layout)
+  :group 'phw)
 
 (defcustom phw-left-right-layout-hide-sequence '(left-side all right-side none)
   "*"
-  :group 'phw-layout
+  :group 'phw
   :type '(repeat (choice :tag "Hidden windows"
                          :menu-tag "Hidden windows"
                          (const :tag "Only left side phw-windows hidden" :value left-side)
@@ -756,7 +657,7 @@ IMPORTANT: Showing the hidden PHW-windows is internally done by calling
 `phw-redraw-layout-before-hook' and `phw-redraw-layout-after-hook' are
 evaluated. The hook-sequence is analogous to that described in
 `phw-show-phw-windows-before-hook'."
-  :group 'phw-layout
+  :group 'phw
   :type 'hook)
 
 (defcustom phw-hide-phw-windows-after-hook nil
@@ -768,7 +669,7 @@ IMPORTANT: Showing the hidden PHW-windows is internally done by calling
 `phw-redraw-layout-before-hook' and `phw-redraw-layout-after-hook' are
 evaluated. The hook-sequence is analogous to that described in
 `phw-show-phw-windows-after-hook'."
-  :group 'phw-layout
+  :group 'phw
   :type 'hook)
 
 (defcustom phw-show-phw-windows-before-hook nil
@@ -787,7 +688,7 @@ showing the hidden PHW-windows:
 4. `phw-redraw-layout-after-hook'
 5. `phw-show-phw-windows-after-hook'
 So be aware which code you add to which hook!"
-  :group 'phw-layout
+  :group 'phw
   :type 'hook)
 
 (defcustom phw-show-phw-windows-after-hook nil
@@ -807,19 +708,19 @@ showing the hidden PHW-windows:
 4. `phw-redraw-layout-after-hook'
 5. `phw-show-phw-windows-after-hook'
 So be aware which code you add to which hook!"
-  :group 'phw-layout
+  :group 'phw
   :type 'hook)
 
 (defcustom phw-redraw-layout-after-hook nil ; '(phw-eshell-recenter)
   "*Hooks run direct after the PHW-layout has been redrawn.
 If you use the eshell-integration of PHW then the function
 `phw-eshell-recenter' should be in this hook."
-  :group 'phw-layout
+  :group 'phw
   :type 'hook)
 
 (defcustom phw-redraw-layout-before-hook nil
   "*Hooks run direct before the PHW-layout will be redrawn."
-  :group 'phw-layout
+  :group 'phw
   :type 'hook)
 
 (defcustom phw-layout-debug-mode nil
@@ -834,7 +735,7 @@ not do what you think it should do etc...) then please do the following steps:
 3. Now send immediately a bug report with `phw-submit-problem-report'.
 4. Set `phw-layout-debug-mode' back to nil if you do not want further
    debugging output in the *Messages* buffer"
-  :group 'phw-layout
+  :group 'phw
   :type 'boolean)
 
 

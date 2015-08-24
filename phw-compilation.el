@@ -25,22 +25,6 @@
 ;; GNU Emacs; see the file COPYING.  If not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-;; $Id$
-
-;;; Commentary:
-
-;; NOTE: If you enjoy this software, please consider a donation to the EFF
-;; (http://www.eff.org)
-
-;;; History
-;;
-;; For the ChangeLog of this file see the CVS-repository. For a complete
-;; history of the PHW-package see the file NEWS.
-
-
-
-;;; Code:
-
 (require 'phw-util)
 
 (defcustom phw-compilation-buffer-names `(("*Calculator*" . nil)
@@ -69,7 +53,7 @@ PHW already handles the eshell-integration as best as possible.
 
 See also the options `phw-compilation-major-modes' and
 `phw-compilation-predicates'."
-  :group 'phw-compilation
+  :group 'phw
   :group 'phw-most-important
   :type '(repeat (cons (string :tag "Buffer name")
                        (boolean :tag "Handled as regexp"))))
@@ -106,7 +90,7 @@ compile-window even if `compilation-buffer-p' says nil for such a buffer.
 
 It is not recommended to add `eshell-mode' to this list because PHW already
 handles the eshell-integration as best as possible."
-  :group 'phw-compilation
+  :group 'phw
   :type '(repeat (symbol :tag "major-mode name")))
 
 (defvar phw-compilation-major-modes-internal nil
@@ -135,7 +119,7 @@ compile-window.
 
 Default value is the function `comint-check-proc' which returns not nil when
 the buffer is related to a living process."
-  :group 'phw-compilation
+  :group 'phw
   :type '(repeat (symbol :tag "Compilation predicate")))
 
 (defvar phw-compilation-predicates-internal nil

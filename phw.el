@@ -25,53 +25,6 @@
 ;; GNU Emacs; see the file COPYING.  If not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-;; $Id$
-
-;;; Commentary:
-;;
-;; PHW stands for "Persistent Horizontal Window".
-;;
-;;   +------------------------------------------------+
-;;   |                                                |
-;;   |                                                |
-;;   |                                                |
-;;   |                                                |
-;;   |                                                |
-;;   |                                                |
-;;   |                                                |
-;;   |                  Edit-area                     |
-;;   |    (can be split into several edit-windows)    |
-;;   |                                                |
-;;   |                                                |
-;;   |                                                |
-;;   |                                                |
-;;   |                                                |
-;;   |                                                |
-;;   +------------------------------------------------+
-;;   |                                                |
-;;   |          Persistent Horizontal Window          |
-;;   |                                                |
-;;   +------------------------------------------------+
-;;
-
-;;; Installation
-;;
-;; To use the Emacs code browser add the PHW files to your load path and add the
-;; following line to your .emacs file:
-;;
-;; If you want autoloading PHW after first start:
-;;
-;;    (require 'phw-autoloads)
-;;
-;; or if you want loading the complete PHW:
-;;
-;;    (require 'phw)
-;;
-;; Optional: You can byte-compile PHW with `phw-byte-compile' after the
-;;           PHW-package is loaded
-
-;;; Activation
-
 ;;; Ancestry
 ;;
 ;; This package is an outgrowth (or perhaps more accurately a reduction)
@@ -84,7 +37,6 @@
 ;; more than just the output of compilation activities.  Hence I have
 ;; renamed that window the Persistent Horizontal Window (PHW).
 
-;;; Code:
 
 ;; We need this libraries already here if we miss some requirements
 (require 'phw-util)
@@ -105,7 +57,6 @@
 (defvar phw-major-mode-selected-source nil
   "Major-mode of currently selected source.")
 
-;; Klaus Berndl <klaus.berndl@sdm.de>: FRAME-LOCAL
 (defvar phw-minor-mode nil
   "Do not set this variable directly. Use `phw-activate' and
 `phw-deactivate' or `phw-minor-mode'.!")
