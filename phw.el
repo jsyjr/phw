@@ -17,15 +17,21 @@
 
 ;;; Ancestry
 ;;
-;; This package is an outgrowth (or perhaps more accurately a reduction)
-;; of ECB, an elaborate emacs code browsing package with impressive
-;; window management capabilities.  My interest was only in ECB's
-;; ability to provide what it termed a "persistent compile window".
-;; This was a horizontal window spanning the edit area along with a set
-;; of mechanisms for ensuring that certain buffers consistently got
-;; displayed in this window.  The collection of such buffers was always
-;; more than just the output of compilation activities.  Hence I have
-;; renamed that window the Persistent Horizontal Window (PHW).
+;; This package is an outgrowth (or perhaps more accurately a reduction) of ECB,
+;; an elaborate emacs code browsing package with impressive window management
+;; capabilities.  My interest was only in ECB's ability to provide what it
+;; termed a "persistent compile window".  This was a horizontal window spanning
+;; the edit area along with a set of mechanisms for ensuring that certain
+;; buffers consistently got displayed in this window.  The collection of such
+;; buffers was always more than just the output of compilation activities.
+;; Hence I have renamed that window the Persistent Horizontal Window (PHW).
+
+;;====================================================
+;; Notes on overrides
+;;====================================================
+
+; other-window:
+; - Skips PHW by setting PHW's 'no-other-window property to t.
 
 ;;====================================================
 ;; Customization
