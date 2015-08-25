@@ -104,27 +104,28 @@ off. Return non-nil if the minor mode is enabled."
 
 (defcustom phw-key-map
   '(phw-common-prefix
-       ; Rotate buffers within a window
-    . ((t "n"  phw-window-display-next)
-       (t "p"  phw-window-display-previous)
-
+    . (
        ; Buffer display size control
        (t "/"  phw-toggle-fit-on-focus)
 
+       ; Rotate buffers within a window
+       (t "n"  phw-goto-window)
+       (t "p"  phw-goto-window)
+
        ; Move focus to different windows (select)
-       (t ","  phw-dwim-goto-edit-window-or-phw)
-       (t "."  phw-goto-most-recent-window)
-       (t "f"  phw-goto-edit-window-forward)
-       (t "b"  phw-goto-edit-window-backward)
-       (t "1"  phw-goto-edit-window-N)
-       (t "2"  phw-goto-edit-window-N)
-       (t "3"  phw-goto-edit-window-N)
-       (t "4"  phw-goto-edit-window-N)
-       (t "5"  phw-goto-edit-window-N)
-       (t "6"  phw-goto-edit-window-N)
-       (t "7"  phw-goto-edit-window-N)
-       (t "8"  phw-goto-edit-window-N)
-       (t "9"  phw-goto-edit-window-N)
+       (t ","  phw-goto-window)
+       (t "."  phw-goto-window)
+       (t "f"  phw-goto-window)
+       (t "b"  phw-goto-window)
+       (t "1"  phw-goto-window)
+       (t "2"  phw-goto-window)
+       (t "3"  phw-goto-window)
+       (t "4"  phw-goto-window)
+       (t "5"  phw-goto-window)
+       (t "6"  phw-goto-window)
+       (t "7"  phw-goto-window)
+       (t "8"  phw-goto-window)
+       (t "9"  phw-goto-window)
 
        ; Move current buffer and focus to a new window
        (t "m," phw-dwim-move-buffer-to-edit-window-or-phw)
@@ -195,16 +196,22 @@ off. Return non-nil if the minor mode is enabled."
 (defun phw-goto-window ()
   ""
   (interactive)
-  (let ((target (phw--window-from-keys)))
-    (when (<= 0 target)
-      (setq phw--window-selected target)
-      (when (< 0 target)
-        (setq phw--window-last-edit target)))
-    (message "Target edit window: %s  (selected %s; last-edit %s)" target phw--window-selected phw--window-last-edit)))
+  (let ((win (phw--window-from-keys)))
+    (setq phw--window-selected win)
+    (unless (eq win phw--window-persistent)
+      (setq phw--window-last-edit win))
+    (when phw--debug
+      (message "Return %s, Selected %s, Last-edit %s"
+               win
+               phw--window-selected
+               phw--window-last-edit))
+    (select-window win)))
 
 ;;====================================================
 ;; Internals
 ;;====================================================
+
+(defvar phw--debug t)
 
 (defvar phw--window-persistent nil
   "Window object of _live_ persistent window else nil.")
@@ -218,45 +225,55 @@ off. Return non-nil if the minor mode is enabled."
   (unless (window-live-p phw--window-persistent)
     (setq phw--window-persistent nil))
   (cond
+   ((and phw--window-persistent (not activate))
+    (delete-window phw--window-persistent)
+    (setq phw--window-persistent nil))
    ((and activate (not phw--window-persistent))
+    (setq phw--window-last-edit (selected-window))
     (setq phw--window-persistent
           (split-window (frame-root-window)
                         (- phw-window-lines)
                         (if phw-window-at-top-of-frame 'above 'below)
                         ))
-    (message "Persistent: %s.  Selected: %s." phw--window-persistent (selected-window)))
-   ((and phw--window-persistent (not activate))
-    (delete-window phw--window-persistent)
-    (setq phw--window-persistent nil)))
+    (set-window-parameter phw--window-persistent 'no-other-window t)
+    (when phw--debug
+      (message "Persistent: %s.  Selected: %s."
+               (window-id-string phw--window-persistent)
+               (window-id-string (selected-window))))))
   (force-mode-line-update t))
 
 
 (defun phw--window-from-keys ()
   "Return a window spec from last element of triggering key sequence.
 Mappings are:
-  '1'..'9'  : edit window N
   ',' 'C-,' : alternate between PHW and current edit window
+  '1'..'9'  : edit window N
   '.' 'C-.' : previous in edit windows ring
   'f'       : next edit window
   'b'       : previous edit window"
   (let* ((keys (this-command-keys-vector))
          (len  (length keys))
          (last (elt keys (1- len))))
+    ; Using 0 as the MINIBUFFER argument in calls to next-window and
+    ; previous-window is necessary to guarantee minibuffer exclusion.
     (cond
-     ((< ?0 last (1+ ?9))               ; edit window N
-      (- last ?0))
      ((or (= last ?\,)                  ; alternate PHW and edit
 	  (= last (elt (kbd "C-,") 0)))
-      (if (zerop phw--window-selected)
+     ((< ?0 last (1+ ?9))               ; edit window N
+      (let ((win phw--window-persistent))
+        (loop repeat (- last ?0) do
+              (setq win (next-window win 0)))
+        win))
+      (if (eq phw--window-persistent phw--window-selected)
 	  phw--window-last-edit
-	0))
+	phw--window-persistent))
      ((or (= last ?\.)                  ; pop to previous edit
      	  (= last (elt (kbd "C-.") 0)))
       -1)
      ((= last ?f)                       ; next edit window
-      -2)
+      (next-window phw--window-last-edit 0))
      ((= last ?b)                       ; previous edit window
-      -3)
+      (previous-window phw--window-last-edit 0))
      (t error "Unknown buffer key (%s)" last))))
 
 
