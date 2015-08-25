@@ -182,7 +182,7 @@ off. Return non-nil if the minor mode is enabled."
                                   (cons 'phw-minor-mode 'ignore))))))
 
 ;;====================================================
-;; Bindable functions
+;; Interactive operations
 ;;====================================================
 
 ;;;###autoload
@@ -200,27 +200,28 @@ off. Return non-nil if the minor mode is enabled."
 ;; Internals
 ;;====================================================
 
-(defvar phw--window-persistent nil)
-(defvar phw--window-selected nil)
-(defvar phw--window-last-edit nil)
-
-(defvar phw--active nil
-  "Non-nil if managing PHW and window navigation.
-Never set this variable directly.")
-
-(defvar phw--window-id-in-mode-line t
-  "Debugging aid: set to enable displaying window IDs in mode-lines")
+(defvar phw--window-persistent nil
+  "Window object of _live_ persistent window else nil.")
+(defvar phw--window-selected nil
+  "Window object of currently selected window.")
+(defvar phw--window-last-edit nil
+  "Window object of last non-persistent window.")
 
 (defun phw--activate (activate)
   "Activate (display) or deactivate (retract) the PHW."
+  (unless (window-live-p phw--window-persistent)
+    (setq phw--window-persistent nil))
   (cond
-   (activate
-    ((split-window (frame-root-window)
-                   phw-window-lines
-                   (if phw-window-at-top-of-frame 'above 'below))))
-   (t
-    nil))
-  (setq phw--active activate)
+   ((and activate (not phw--window-persistent))
+    (setq phw--window-persistent
+          (split-window (frame-root-window)
+                        (- phw-window-lines)
+                        (if phw-window-at-top-of-frame 'above 'below)
+                        ))
+    (message "Persistent: %s.  Selected: %s." phw--window-persistent (selected-window)))
+   ((and phw--window-persistent (not activate))
+    (delete-window phw--window-persistent)
+    (setq phw--window-persistent nil)))
   (force-mode-line-update t))
 
 
