@@ -25,12 +25,12 @@ edit-N / min
 edit-N / max
 
 Buffer local variables:
-phw-window: nil (=> not local) 'phw or N (=> edit)
+phw-window: nil (=> unrestricted) or a window-object (=> bound if live)
 phw-size-edit: nil (=> not local, dyn), t (=> max)
 phw-size-phw:  nil (=> not local, dyn), t (=> min)
 
 
- PHW |   Editr   |
+ PHW |   Edit    |
  low | nil |  t  |
 -----+-----+-----+
  nil |	4  |  3  |
