@@ -219,6 +219,8 @@ off. Return non-nil if the minor mode is enabled."
   "Window object of currently selected window.")
 (defvar phw--window-last-edit nil
   "Window object of last non-persistent window.")
+(defvar phw--window-sides-slots nil
+  "Save window-sides-slots from mode enable time.")
 
 (defun phw--activate (activate)
   "Activate (display) or deactivate (retract) the PHW."
@@ -226,47 +228,41 @@ off. Return non-nil if the minor mode is enabled."
     (setq phw--window-persistent nil))
   (cond
    ((and phw--window-persistent (not activate))
-    ;; (remove-function (symbol-function 'split-window-sensibly)
-    ;;                  #'phw--split-window-protect)
-    (remove-function (symbol-function 'split-window)
-                     #'phw--split-window)
-    (remove-function 'split-window-preferred-function
-                     #'phw--split-window-preferred-function)
+    ; Restore window-sides-slots
+    (setq window-sides-slots phw--window-sides-slots)
+    (setq phw--window-sides-slots nil)
+    ; Destroy the PHW
     (delete-window phw--window-persistent)
     (setq phw--window-persistent nil)
     )
    ((and activate (not phw--window-persistent))
+    ; Save window-sides-slots and install our version
+    (let ((slots window-sides-slots))
+      (unless phw--window-sides-slots
+        (setq phw--window-sides-slots slots))
+      (setq window-sides-slots
+            (list (nth 0 slots)
+                  (if phw-window-at-top-of-frame 1 (nth 1 slots))
+                  (nth 2 slots)
+                  (if phw-window-at-top-of-frame (nth 3 slots) 1))))
+    ; Note currently selected window as last-edit
     (setq phw--window-last-edit (selected-window))
+    ; Create the PHW and establish important parameters
     (setq phw--window-persistent
           (split-window (frame-root-window)
                         (- phw-window-lines)
                         (if phw-window-at-top-of-frame 'above 'below)
                         ))
-    (set-window-parameter phw--window-persistent 'no-other-window t)
-    ; Add an outermost functions
-    ;; (add-function :before (symbol-function split-window-sensibly)
-    ;;               #'phw--split-window-protect '((depth . -100)))
-    (add-function :before (symbol-function 'split-window)
-                  #'phw--split-window '((depth . -100)))
-    (add-function :before (var split-window-preferred-function)
-                  #'phw--split-window-preferred-function '((depth . -100)))
+    (set-window-parameter phw--window-persistent
+                          'window-side
+                          (if phw-window-at-top-of-frame 'top 'bottom))
+    (set-window-parameter phw--window-persistent
+                          'no-other-window t)
     (when phw--debug
       (message "Persistent: %s.  Selected: %s."
                (window-id-string phw--window-persistent)
                (window-id-string (selected-window))))))
   (force-mode-line-update t))
-
-(defun phw--split-window (orig-func &optional win size side pixelwise)
-  "Protect PHW during split-window."
-  (when (eq (or win (selected-window)) phw--window-persistent)
-      (error "Cannot split the persistent window"))
-  (apply orig-func win size side pixelwise))
-
-(defun phw--split-window-preferred-function (orig-func win)
-  "Protect PHW during split-window-preferred-function."
-  (if (eq win phw--window-persistent)
-      nil
-    (apply orig-func win)))
 
 (defun phw--window-from-keys ()
   "Return a window spec from last element of triggering key sequence.
