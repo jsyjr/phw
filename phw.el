@@ -34,11 +34,19 @@
 ; - Skips PHW by setting PHW's 'no-other-window property to t.
 
 ;;====================================================
-;; Customization
+;; Define global minor mode and customization
 ;;====================================================
 
+;;;###autoload
+(define-minor-mode phw-mode nil  ; let d-m-m supply doc string
+  :group 'phw
+  :global t
+  (phw--activate phw-mode))
+
 (defgroup phw nil
-  "Manage a persistent horizontal window."
+  "Navigate a frame with a persistent horizontal window."
+  :group 'convenience
+  :group 'environment
   :group 'windows
   :prefix "phw-")
 
@@ -48,7 +56,7 @@
   :type 'key-sequence)
 
 (defcustom phw-window-at-top-of-frame nil
-  "Non-nil to locate persistent horizontal window at top of frame."
+  "Non-nil to position persistent horizontal window at top of frame."
   :group 'phw
   :type 'boolean)
 
@@ -56,11 +64,6 @@
   ""
   :group 'phw
   :type 'integer)
-
-(defcustom phw-auto-activate nil
-  "Turn on PHW automatically when Emacs starts."
-  :group 'phw
-  :type 'boolean)
 
 (defcustom phw-minor-mode-text " PHW"
   "String to display in the mode line when PHW minor mode is active.
@@ -82,22 +85,6 @@ PHW-windows are hidden."
 ;;====================================================
 ;; Required minor mode definitions
 ;;====================================================
-
-(defvar phw-minor-mode nil
-  "Do not set this variable directly. Use `phw-activate' and
-`phw-deactivate' or `phw-minor-mode'.!")
-
-;;;###autoload
-(defun phw-minor-mode (&optional arg)
-  "Toggle PHW minor mode.
-With prefix argument ARG, turn on if positive, otherwise
-off. Return non-nil if the minor mode is enabled."
-  (interactive "P")
-  (setq phw-minor-mode (if (null arg)
-                           (not phw-minor-mode)
-                         (> (prefix-numeric-value arg) 0)))
-  (phw--activate phw-minor-mode)
-  phw-minor-mode)
 
 (defvar phw-mode-map nil
   "Internal key-map for PHW minor mode.")
@@ -164,7 +151,7 @@ off. Return non-nil if the minor mode is enabled."
        (t "x9" phw-exchange-buffers-edit-window-N)
 
        ))
-  "*Specifies all key-bindings for the PHW minor-mode key-map."
+  "*Specifies all key-bindings for the PHW minor mode key-map."
   :group 'phw
   :type '(cons (choice :tag "Common prefix"
                        (const :tag "No common prefix" :value nil)
@@ -188,12 +175,12 @@ off. Return non-nil if the minor mode is enabled."
                              (define-key km (read-kbd-macro key-string) (nth 2 elem)))
                            km))
                    ;; Add/update minor-mode and its map in alists.
-                   (add-minor-mode 'phw-minor-mode
+                   (add-minor-mode 'phw-mode
                                    'phw-minor-mode-text phw-mode-map)
                    ;; PHW minor mode doesn't work w/ Desktop restore.
                    (when (boundp 'desktop-minor-mode-handlers)
                      (add-to-list 'desktop-minor-mode-handlers
-                                  (cons 'phw-minor-mode 'ignore))))))
+                                  (cons 'phw-mode 'ignore))))))
 
 ;;====================================================
 ;; Interactive operations
