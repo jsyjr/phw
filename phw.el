@@ -204,7 +204,7 @@ PHW-windows are hidden."
 ;; Internals
 ;;====================================================
 
-(defvar phw--debug t)
+(defvar phw--debug nil)
 
 (defvar phw--window-persistent nil
   "Window object of _live_ persistent window else nil.")
@@ -248,11 +248,7 @@ PHW-windows are hidden."
                           'window-side
                           (if phw-window-at-top-of-frame 'top 'bottom))
     (set-window-parameter phw--window-persistent
-                          'no-other-window t)
-    (when phw--debug
-      (message "Persistent: %s.  Selected: %s."
-               (window-id-string phw--window-persistent)
-               (window-id-string (selected-window))))))
+                          'no-other-window t)))
   (force-mode-line-update t))
 
 (defun phw--window-from-keys ()
@@ -317,6 +313,18 @@ Mappings are:
 
      (t error "Unknown buffer key (%s)" event))
     target))
+
+(defun phw-window-ordinal (&optional window)
+  ""
+  (let ((target (window-normalize-window window t))
+        (win phw--window-persistent)
+        (ordinal 0))
+    (if (not (and win target))
+        nil
+      (loop until (eq win target) do
+            (setq ordinal (1+ ordinal))
+            (setq win (next-window win 0)))
+      ordinal)))
 
 
 ;;====================================================
