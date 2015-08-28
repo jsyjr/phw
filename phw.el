@@ -315,17 +315,23 @@ Mappings are:
     target))
 
 (defun phw-window-ordinal (&optional window)
-  ""
+  "Return a string representing WINDOW's navigation ordinal.
+This ordinal is WINDOW's position in the host frame's windows
+list counting from the PHW."
   (let ((target (window-normalize-window window t))
         (win phw--window-persistent)
         (ordinal 0))
-    (if (not (and win target))
-        nil
+    (when (and win target)
       (loop until (eq win target) do
-            (setq ordinal (1+ ordinal))
+            (when (window-live-p win)
+              (setq ordinal (1+ ordinal)))
             (setq win (next-window win 0)))
-      ordinal)))
+      (number-to-string ordinal))))
 
+;; (defun phw-window-ordinal (window)
+;;   "Debuggind: return ID of selected window as a string"
+;;   (let ((txt (substring (format "%s" window) (length "#<window "))))
+;;     (substring txt 0 (string-match " " txt))))
 
 ;;====================================================
 ;; PHW byte-compilation
