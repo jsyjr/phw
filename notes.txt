@@ -7,6 +7,11 @@ C-. n		Jump to next edit window
 C-. p		Jump to previous edit window
 C-. 1-9		Jump to edit window N (or if in edit window N then cycle)
 
+;; Verb keys taking a target
+m               move
+x               exchange
+
+
 ;; Moving buffers between windows
 C-. m .		Send selected buffer to PHW and mark for PHW
 C-. m 1-9	Send selected buffer to edit window N and unmark for PHW
@@ -25,9 +30,15 @@ edit-N / min
 edit-N / max
 
 Buffer local variables:
-phw-window: nil (=> unrestricted) or a window-object (=> bound if live)
-phw-size-edit: nil (=> not local, dyn), t (=> max)
-phw-size-phw:  nil (=> not local, dyn), t (=> min)
+phw--window: nil (=> unrestricted) or a window-object (=> bound if live)
+phw--size:
+  nil : dynamic
+  0   : goal - shrink to fit
+  N   : goal - N lines
+  t   : goal - maximize
+
+(=> not local, dyn), t (=> max)
+phw--size-phw:  nil (=> not local, dyn), t (=> min)
 
 
  PHW |   Edit    |
@@ -42,3 +53,11 @@ phw-size-phw:  nil (=> not local, dyn), t (=> min)
 2: fit PHW
 3: fit edit
 4: maximize PHW
+
+
+When edit:
+ - make PHW default-small
+ - if PHW at top then shrink to fit
+
+When PHW:
+ - make PHW default-large
