@@ -26,6 +26,7 @@
 ;; buffers was always more than just the output of compilation activities.
 ;; Hence I have renamed that window the Persistent Horizontal Window (PHW).
 
+(require 'cl-macs) ; for cl-loop
 (require 'compile) ; for compilation-buffer-p
 
 ;;====================================================
@@ -38,13 +39,6 @@
 ;;====================================================
 ;; Define global minor mode and customization
 ;;====================================================
-
-;;;###autoload
-(define-minor-mode phw-mode nil  ; let d-m-m supply doc string
-  :group 'phw
-  :global t
-  :keymap 'phw--keymap
-  (phw--active phw-mode))
 
 (defgroup phw nil
   "Navigate a frame with a persistent horizontal window."
@@ -185,11 +179,11 @@ Possisble focus targets are listed in `phw--window-targets'."
 ;; Keymap
 ;;====================================================
 
-(defvar phw--keymap (make-sparse-keymap)
+(defvar phw--keymap '(keymap)
   "Keymap when phw-mode is enable.")
 
 (defvar phw--window-targets
- '(("0" . "PHW")
+  '(("0"   . "PHW")
     ("1"   . "edit-1")
     ("2"   . "edit-2")
     ("3"   . "edit-3")
@@ -201,8 +195,8 @@ Possisble focus targets are listed in `phw--window-targets'."
     ("9"   . "edit-9")
     ("f"   . "edit-successor")
     ("b"   . "edit-predecessor")
-    (","   . "toggle-PHW-and-most-recent-edit")
-    ("C-," . "toggle-PHW-and-most-recent-edit")
+    (","   . "PHW-or-edit")
+    ("C-," . "PHW-or-edit")
     ("."   . "history-previous-edit")
     ("C-." . "history-previous-edit"))
  "Map a triggering key sequence's final event to a window target suffix.
@@ -212,19 +206,25 @@ the associated target window.  During keymap construction `phw--keymap-add'
 uses TARGET as a suffix to create aliases for phw's generic commands."
 )
 
+(defmacro phw--alias-cmd (NAME CMD)
+  (list 'defun NAME ()
+        (list CMD)))
+
+(defun phw--keymap-add-verb-group (cmd &optional verb)
+  "Augment `phw--keymap' with a set of VERB bindings invoking CMD aliases."
+  (dolist (elt phw--window-targets)
+    (let ((alias (concat (symbol-name cmd) "-" (cdr elt))))
+      (message "CMD:   %s = %s" cmd (symbol-function cmd))
+      (phw--alias-cmd alias cmd)
+      (message "ALIAS: %s = %s" (intern-soft alias) (symbol-function (intern-soft alias)))
+      (define-key phw--keymap (kbd (concat phw-common-prefix " " verb " " (car elt))) (intern-soft alias)))))
+
 (defun phw--create-keymap ()
   "Create phw-mode's keymap taking using current `phw-common-prefix'."
   (setq phw--keymap (make-sparse-keymap))
-  (phw--kepmap-add 'phw-goto-window))
+  (phw--keymap-add-verb-group 'phw-goto-window))
 
-(defun phw--kepmap-add (cmd &optional verb)
-  "Augment `phw--kepmap' with a set of VERB bindings invoking CMD aliases."
-  (let ((fun (lambda () (cmd)))
-        (plist (symbol-plist cmd)))
-    (dolist (elt phw--window-targets)
-      (let ((alias (intern (concat (symbol-name cmd) "-" (cdr elt)))))
-        (defun alias () fun)
-        (define-key phw--keymap (concat phw-common-prefix verb (car elt)) alias)))))
+(phw--create-keymap)
 
 (defun phw--window-target-from-key ()
   "Map a triggering key sequence's final event to a live window object.
@@ -268,6 +268,17 @@ This function implements an analysis parallel to `phw--window-targets'."
     target))
 
 ;;====================================================
+;; Minor mode delcaration
+;;====================================================
+
+;;;###autoload
+(define-minor-mode phw-mode nil  ; let d-m-m supply doc string
+  :group 'phw
+  :global t
+  :keymap phw--keymap
+  (phw--active phw-mode))
+
+;;====================================================
 ;; Activaton and deactivation
 ;;====================================================
 
@@ -306,7 +317,7 @@ Always use phw--active."
 (defun phw--make-active ()
   "Effect globals changes necessary to make phw-mode active.
 Never call this function directly.  Always use phw--active."
-  (phw--create-keymap)
+;  (phw--create-keymap)
 
   ;; Save window-sides-slots and install our version
   (let ((slots window-sides-slots))
