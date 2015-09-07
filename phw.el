@@ -57,36 +57,27 @@
   :group 'phw
   :type 'key-sequence)
 
-(defcustom phw-display-in-PHW-buffer-names
-  `(("*Calculator*" . nil)
-    ("*vc*" . nil)
-    ("*vc-diff*" . nil)
-    ("*Apropos*" . nil)
-    ("*Occur*" . nil)
-    ("*shell*" . nil)
-    ("\\*[cC]ompilation.*\\*" . t)
-    ("\\*i?grep.*\\*" . t)
-    ("*Help*" . nil)
-    ("*Completions*" . nil)
-    ("*Backtrace*" . nil)
-    ("*Compile-log*" . nil)
-    ("*bsh*" . nil)
-    ("*Messages*" . nil))
-  "Buffer names to be displayed in the persistent horizontal window.
-Each list entry is (NAME-SPEC . REGEX-FLAG).  If REGEX-FLAG is
-nil then NAME-SPEC is compared using `compare-strings' otherwise
-NAME-SPEC is compared using `string-match'.  Any successful
-comparison will cause the buffer to be displayed in the PHW."
+(defcustom phw-window-at-top-of-frame nil
+  "Non-nil positions persistent horizontal window at top of frame."
   :group 'phw
-  :type '(repeat (cons (string :tag "Buffer name-spec")
-                       (boolean :tag "Match as regexp"))))
+  :type 'boolean)
+
+(defcustom phw--edit-selected-PHW-max 10
+  ""
+  :group 'phw
+  :type 'integer)
+
+(defcustom phw--PHW-selected-edit-min 20
+  ""
+  :group 'phw
+  :type 'integer)
 
 (defcustom phw-display-in-PHW-major-modes
   '(compilation-mode
     shell-mode)
-  "Major-mode to be displayed in the persistent horizontal
-window.  Any buffer for which `derived-mode-p' returns non-nil
-for any major-mode in this list will be displayed in the PHW."
+  "Major-modes to be displayed in the persistent horizontal window.
+Any buffer for which `derived-mode-p' returns non-nil for any mode
+in this list will be displayed in the PHW."
   :group 'phw
   :type '(repeat (symbol :tag "Major-mode name")))
 
@@ -99,25 +90,34 @@ non-nil will be displayed in the PHW."
   :group 'phw
   :type '(repeat (symbol :tag "Buffer predicate")))
 
-(defcustom phw-window-at-top-of-frame nil
-  "Non-nil to position persistent horizontal window at top of frame."
+(defcustom phw-display-in-PHW-buffer-names
+  `("*Apropos*"
+    "*apropos-toc*"
+    "*Backtrace*"
+    "*bsh*"
+    "*buffer-selection*"
+    "*Calculator*"
+    "*Compile-log*"
+    "*Completions*"
+    "*Help*"
+    "*Messages*"
+    "*Occur*"
+    "*shell*"
+    "*vc*"
+    "*vc-diff*")
+  "Buffer names to be displayed in the persistent horizontal window.
+Any successful match will cause a buffer to be displayed in the PHW."
   :group 'phw
-  :type 'boolean)
+  :type '(repeat (string :tag "Buffer name")))
 
-(defcustom phw--holdback-PHW 10
-  ""
+(defcustom phw-display-in-PHW-buffer-regexs
+  `("\\*[cC]ompilation.*\\*"
+    "\\*i?grep.*\\*"
+    "\\*magit: .*\\*")
+  "Buffer regexs to be displayed in the persistent horizontal window.
+Any successful match will cause a buffer to be displayed in the PHW."
   :group 'phw
-  :type 'integer)
-
-(defcustom phw--holdback-edit 20
-  ""
-  :group 'phw
-  :type 'integer)
-
-(defcustom phw-window-lines 10
-  ""
-  :group 'phw
-  :type 'integer)
+  :type '(repeat (string :tag "Buffer name regex")))
 
 (defcustom phw-minor-mode-text " PHW"
   "String to display in the mode line when PHW minor mode is active.
@@ -244,10 +244,13 @@ PHW-windows are hidden."
 
 (defvar phw--window-PHW nil
   "Window object of _live_ persistent window else nil.")
-(defvar phw--window-MR-edit nil
+(defvar phw--MR-window-edit nil
   "Window object of most recent edit (non-phw) window.")
-(defvar phw--window-MR-select nil
+(defvar phw--MR-window-selected nil
   "Window object of most recently selected window.")
+(defvar phw--MR-buffer-selected nil
+  "Most recently selected buffer.")
+
 (defvar phw--window-sides-slots nil
   "Save window-sides-slots from mode enable time.")
 
@@ -276,6 +279,8 @@ disabled.  This function is idem potent: calling it repeatedly
 should have no ill-effects.  Never call this function directly.
 Always use phw--active."
 ;;  (remove-hook 'buffer-list-update-hook 'phw--on-window-change)
+  (remove-hook 'post-command-hook 'phw--selected-window-adjust-height)
+
   ;; Remove our display action.
   (setq display-buffer-base-action nil)
   ;; Restore original window-sides-slots
@@ -300,25 +305,27 @@ Never call this function directly.  Always use phw--active."
                 (nth 2 slots)
                 (if phw-window-at-top-of-frame (nth 3 slots) 1))))
   ;; Note currently selected window as MR-edit
-  (setq phw--window-MR-edit (selected-window))
-  (setq phw--window-MR-select phw--window-MR-edit)
+  (setq phw--MR-window-edit (selected-window))
+  (setq phw--MR-window-selected phw--MR-window-edit)
+  (setq phw--MR-buffer-selected (current-buffer))
   ;; Create the PHW and establish important parameters
-  (setq phw--window-PHW
-        (split-window (frame-root-window)
-                      (- phw-window-lines)
-                      (if phw-window-at-top-of-frame 'above 'below)
-                      ))
-  (set-window-parameter phw--window-PHW
-                        'window-side
-                        (if phw-window-at-top-of-frame 'top 'bottom))
-  (set-window-parameter phw--window-PHW
-                        'no-other-window t)
-  (set-window-parameter phw--window-PHW
-                        'delete-window
-                        (lambda (win) (error "delete-window: Cannot delete phw-mode's persistent horizontal window")))
+
+  (let ((phw (split-window (frame-root-window)
+                           (- phw--edit-selected-min-PHW)
+                           (if phw-window-at-top-of-frame 'above 'below))))
+    (setq phw--window-PHW phw)
+    (window-preserve-size phw t t)
+    (set-window-parameter phw 'window-side
+                          (if phw-window-at-top-of-frame 'top 'bottom))
+    (set-window-parameter phw 'no-other-window t)
+    (set-window-parameter phw 'delete-window
+                          (lambda (win)
+                            (error "delete-window: Cannot delete phw-mode's persistent horizontal window"))))
 
   ;; Establish a base action to direct some buffers to PHW
   (setq display-buffer-base-action '(phw--display-in-PHW . nil))
+
+  (add-hook 'post-command-hook 'phw--selected-window-adjust-height)
 
 ;;  (add-hook 'buffer-list-update-hook 'phw--on-window-change)
   )
@@ -327,48 +334,75 @@ Never call this function directly.  Always use phw--active."
   ""
   (with-current-buffer buffer
     (let ((phw phw--window-PHW)
-          (local phw--window))
-      (message "--1--: buffer %s, mode %s, local %s" buffer major-mode local)
-      (unless (and local (window-live-p local))
-        (setq local nil))
-      (setq-local phw--window
-       (catch 'window
-         (cond
-          (local ; bound to a live window
-           (message "--2--: already bound")
-           (throw 'window local))
-          ((not (window-live-p phw)) ; ?no PHW?
-           (message "--3--: no live PHW!")
-           (throw 'window nil))
-          (t
-           (message "--4--")
-           (when (derived-mode-p phw-display-in-PHW-major-modes)
-             (message "--5--: major mode => PHW")
-             (throw 'window phw))
-           (let ((bname (buffer-name)))
-             (dolist (entry phw-display-in-PHW-buffer-names)
-               (let ((name-spec (car entry))
-                     (regex-flag (cdr entry)))
-                 (if (null regex-flag)
-                     (when (eq t (compare-strings name-spec nil nil bname nil nil nil))
-                       (message "--6--: buffer name == string")
-                       (throw 'window phw))
-                   (save-match-data
-                     (when (string-match name-spec bname)
-                       (message "--7--: buffer name matches regex")
-                       (throw 'window phw)))))))
+          (win phw--window)
+          (bname (buffer-name)))
+      (unless (and win (window-live-p win))
+        (setq win nil))
+;      (message "--1--: buffer %s, mode %s, win %s" buffer major-mode win)
+      (setq win (catch 'window
+                  (cond
+                   (win ; bound to a live window
+;                    (message "--2--: already bound")
+                    (throw 'window win))
+                   ((not (window-live-p phw)) ; ?no PHW?
+;                    (message "--3--: no live PHW!")
+                    (throw 'window nil))
+                   (t
+                    (when (derived-mode-p phw-display-in-PHW-major-modes)
+;                      (message "--4--: major mode => PHW")
+                      (throw 'window phw))
+                    (dolist (predicate phw-display-in-PHW-predicates)
+                      (when (and (fboundp predicate) (funcall predicate buffer))
+;                        (message "--5--: buffer satisfies some predicate")
+                        (throw 'window phw)))
+                    (dolist (name phw-display-in-PHW-buffer-names)
+                      (when (eq t (compare-strings name nil nil bname nil nil nil))
+;                        (message "--6--: buffer name == string")
+                        (throw 'window phw)))
+                    (dolist (regex phw-display-in-PHW-buffer-regexs)
+                      (save-match-data
+                        (when (string-match regex bname)
+;                          (message "--7--: buffer name matches regex")
+                          (throw 'window phw))))))))
+      (setq-local phw--window win)
+      (when win
+        (window--display-buffer buffer win 'reuse))
+;      (message "--9--: return %s: %s" (phw-window-ordinal win) win)
+      win)))
 
-           (dolist (predicate phw-display-in-PHW-predicates)
-             (when (and (fboundp predicate) (funcall predicate buffer))
-               (message "--8--: buffer satisfies some predicate")
-               (throw 'window phw))
-             ))))))
-    (message "--9--: return %s" phw--window)
-    phw--window))
-
+(defun phw--selected-window-adjust-height ()
+  "A post-command-hook function to adjust the PHW's height."
+  (let ((win (selected-window))
+        (buf (current-buffer))
+        (phw phw--window-PHW)
+        height)
+    (message "win %s, buf %s, phw %s" win buf phw)
+    (unless (and (eq win phw--MR-window-selected)
+                 (eq buf phw--MR-buffer-selected))
+      (save-window-excursion
+        (maximize-window)
+        (setq height (window-body-height)))
+      (cond
+       ((eq win phw)
+        (let ((point-saved (point)))
+          (setq height (- height phw--PHW-selected-edit-min))
+          (goto-char (point-min))
+          (when (pos-visible-in-window-p (point-max))
+            (setq height (min height (count-lines (point-min) (point-max)))))
+          (goto-char point-saved))
+        (message "PHW : %s height %s adjust %s" win height (- height (window-body-height)))
+        )
+       (t
+        (setq phw--MR-window-edit win)
+        (setq height (- height phw--edit-selected-PHW-max))
+        (message "EDIT: %s height %s adjust %s" win height (- height (window-body-height)))
+        ))
+      (window-resize win (- height (window-body-height)))
+      (setq phw--MR-window-selected win)
+      (setq phw--MR-buffer-selected buf))))
 
 (defun phw--window-from-keys ()
-  "Map triggering key sequence's final event to a live window object.
+  "Map a triggering key sequence's final event to a live window object.
 Mappings are:
   '0'   : PHW
   '1'   : edit window 1
@@ -390,7 +424,7 @@ Mappings are:
         (event last-command-event)
         target)
     (unless (eq selected phw--window-PHW)
-      (setq phw--window-MR-edit selected))
+      (setq phw--MR-window-edit selected))
 
     ; Using 0 as the MINIBUFFER argument in calls to next-window and
     ; previous-window is necessary to guarantee minibuffer exclusion.
@@ -404,14 +438,14 @@ Mappings are:
             (setq target (next-window target 0))))
 
      ((= event ?f)                      ; next edit window
-      (setq target phw--window-MR-edit)
+      (setq target phw--MR-window-edit)
       (cl-loop do
             (setq target (next-window target 0))
             while (or (not (window-live-p target))
                       (eq target phw--window-PHW))))
 
      ((= event ?b)                      ; previous edit window
-      (setq target phw--window-MR-edit)
+      (setq target phw--MR-window-edit)
       (cl-loop do
             (setq target (previous-window target 0))
             while (or (not (window-live-p target))
@@ -420,7 +454,7 @@ Mappings are:
      ((or (= event ?\,)                 ; alternate PHW and edit
 	  (= event (elt (kbd "C-,") 0)))
       (setq target (if (eq selected phw--window-PHW)
-                       phw--window-MR-edit
+                       phw--MR-window-edit
                      phw--window-PHW)))
 
      ((or (= event ?\.)                 ; pop to previous edit
@@ -459,12 +493,12 @@ list counting from the PHW."
   (interactive)
   (let ((win (phw--window-from-keys)))
     (unless (eq win phw--window-PHW)
-      (setq phw--window-MR-edit win))
+      (setq phw--MR-window-edit win))
     (when phw--debug
       (message "Return %s, Selected %s, Last-edit %s"
                win
                (selected-window)
-               phw--window-MR-edit))
+               phw--MR-window-edit))
     (select-window win)))
 
 ;;====================================================
