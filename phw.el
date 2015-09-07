@@ -43,6 +43,7 @@
 (define-minor-mode phw-mode nil  ; let d-m-m supply doc string
   :group 'phw
   :global t
+  :keymap 'phw--keymap
   (phw--active phw-mode))
 
 (defgroup phw nil
@@ -55,7 +56,9 @@
 (defcustom phw-common-prefix "C-,"
   ""
   :group 'phw
-  :type 'key-sequence)
+  :type 'key-sequence
+;  :set (function phw--create-keymap)
+)
 
 (defcustom phw-window-at-top-of-frame nil
   "Non-nil positions persistent horizontal window at top of frame."
@@ -137,107 +140,7 @@ PHW-windows are hidden."
 
 
 ;;====================================================
-;; Required minor mode definitions
-;;====================================================
-
-(defvar phw-mode-map nil
-  "Internal key-map for PHW minor mode.")
-
-(defcustom phw-key-map
-  '(phw-common-prefix
-    . (
-       ; Buffer display size control
-       (t "/"  phw-toggle-fit-on-focus)
-
-       ; Rotate buffers within a window
-       (t "n"  phw-goto-window)
-       (t "p"  phw-goto-window)
-
-       ; Move focus to different windows (select)
-       (t ","  phw-goto-window)
-       (t "C-,"  phw-goto-window)
-       (t "."  phw-goto-window)
-       (t "C-."  phw-goto-window)
-       (t "f"  phw-goto-window)
-       (t "b"  phw-goto-window)
-       (t "0"  phw-goto-window)
-       (t "1"  phw-goto-window)
-       (t "2"  phw-goto-window)
-       (t "3"  phw-goto-window)
-       (t "4"  phw-goto-window)
-       (t "5"  phw-goto-window)
-       (t "6"  phw-goto-window)
-       (t "7"  phw-goto-window)
-       (t "8"  phw-goto-window)
-       (t "9"  phw-goto-window)
-
-       ; Move current buffer and focus to a new window
-       (t "m," phw-dwim-move-buffer-to-edit-window-or-phw)
-       (t "m." phw-dwim-move-buffer-to-edit-window-pop)
-       (t "mf" phw-move-buffer-to-edit-window-forward)
-       (t "mb" phw-move-buffer-to-edit-window-backward)
-       (t "m0" phw-move-buffer-phw)
-       (t "m1" phw-move-buffer-to-edit-window-N)
-       (t "m2" phw-move-buffer-to-edit-window-N)
-       (t "m3" phw-move-buffer-to-edit-window-N)
-       (t "m4" phw-move-buffer-to-edit-window-N)
-       (t "m5" phw-move-buffer-to-edit-window-N)
-       (t "m6" phw-move-buffer-to-edit-window-N)
-       (t "m7" phw-move-buffer-to-edit-window-N)
-       (t "m8" phw-move-buffer-to-edit-window-N)
-       (t "m9" phw-move-buffer-to-edit-window-N)
-
-       ; Exchange buffers between source and destination window.
-       ; Focus follows current buffer.
-       (t "x," phw-dwim-exchange-buffers-edit-window-and-phw)
-       (t "x." phw-dwim-exchange-buffers-edit-window-pop)
-       (t "xf" phw-exchange-buffers-edit-window-forward)
-       (t "xb" phw-exchange-buffers-edit-window-backward)
-       (t "x0" phw-exchange-buffers-phw)
-       (t "x1" phw-exchange-buffers-edit-window-N)
-       (t "x2" phw-exchange-buffers-edit-window-N)
-       (t "x3" phw-exchange-buffers-edit-window-N)
-       (t "x4" phw-exchange-buffers-edit-window-N)
-       (t "x5" phw-exchange-buffers-edit-window-N)
-       (t "x6" phw-exchange-buffers-edit-window-N)
-       (t "x7" phw-exchange-buffers-edit-window-N)
-       (t "x8" phw-exchange-buffers-edit-window-N)
-       (t "x9" phw-exchange-buffers-edit-window-N)
-
-       ))
-  "*Specifies all key-bindings for the PHW minor mode key-map."
-  :group 'phw
-  :type '(cons (choice :tag "Common prefix"
-                       (const :tag "No common prefix" :value nil)
-                       (string :tag "Common prefix" :value phw-prefix))
-               (repeat :tag "Key-bindings"
-                       (list :tag "Key-definition"
-                             (boolean :tag "o Use common prefix" :value t)
-                             (string :tag "o Key")
-                             (function :tag "o Function or lambda-expression"
-                                       :value nil))))
-  :set (function (lambda (symbol value)
-                   (set symbol value)
-                   ;; make a mode-map and save it
-                   (setq phw-mode-map
-                         (let ((km (make-sparse-keymap))
-                               (val-list (cl-copy-list (cdr value)))
-                               keq-string)
-                           (dolist (elem val-list)
-                             (setq key-string (concat (if (nth 0 elem) (eval (car value)))
-                                                      " " (nth 1 elem)))
-                             (define-key km (read-kbd-macro key-string) (nth 2 elem)))
-                           km))
-                   ;; Add/update minor-mode and its map in alists.
-                   (add-minor-mode 'phw-mode
-                                   'phw-minor-mode-text phw-mode-map)
-                   ;; PHW minor mode doesn't work w/ Desktop restore.
-                   (when (boundp 'desktop-minor-mode-handlers)
-                     (add-to-list 'desktop-minor-mode-handlers
-                                  (cons 'phw-mode 'ignore))))))
-
-;;====================================================
-;; Internals
+;; State variables
 ;;====================================================
 
 (defvar phw--debug nil)
@@ -250,7 +153,6 @@ PHW-windows are hidden."
   "Window object of most recently selected window.")
 (defvar phw--MR-buffer-selected nil
   "Most recently selected buffer.")
-
 (defvar phw--window-sides-slots nil
   "Save window-sides-slots from mode enable time.")
 
@@ -259,6 +161,115 @@ PHW-windows are hidden."
 binding) or a window object.  A non-live window object is
 equivalent to nil.  The system endeavors to display each buffers
 in the window to which it is bound.")
+
+;;====================================================
+;; Interactive commands
+;;====================================================
+
+;;;###autoload
+(defun phw-goto-window ()
+  "Move focus to window identified by trigger sequence's final event.
+Possisble focus targets are listed in `phw--window-targets'."
+  (interactive)
+  (let ((win (phw--window-target-from-key)))
+    (unless (eq win phw--window-PHW)
+      (setq phw--MR-window-edit win))
+    (when phw--debug
+      (message "Return %s, Selected %s, Last-edit %s"
+               win
+               (selected-window)
+               phw--MR-window-edit))
+    (select-window win)))
+
+;;====================================================
+;; Keymap
+;;====================================================
+
+(defvar phw--keymap (make-sparse-keymap)
+  "Keymap when phw-mode is enable.")
+
+(defvar phw--window-targets
+ '(("0" . "PHW")
+    ("1"   . "edit-1")
+    ("2"   . "edit-2")
+    ("3"   . "edit-3")
+    ("4"   . "edit-4")
+    ("5"   . "edit-5")
+    ("6"   . "edit-6")
+    ("7"   . "edit-7")
+    ("8"   . "edit-8")
+    ("9"   . "edit-9")
+    ("f"   . "edit-successor")
+    ("b"   . "edit-predecessor")
+    (","   . "toggle-PHW-and-most-recent-edit")
+    ("C-," . "toggle-PHW-and-most-recent-edit")
+    ("."   . "history-previous-edit")
+    ("C-." . "history-previous-edit"))
+ "Map a triggering key sequence's final event to a window target suffix.
+Each entry is a cons (EVENT . TARGET) where EVENT is a string representing
+a triggering key sequence's final event and TARGET is a string describing
+the associated target window.  During keymap construction `phw--keymap-add'
+uses TARGET as a suffix to create aliases for phw's generic commands."
+)
+
+(defun phw--create-keymap ()
+  "Create phw-mode's keymap taking using current `phw-common-prefix'."
+  (setq phw--keymap (make-sparse-keymap))
+  (phw--kepmap-add 'phw-goto-window))
+
+(defun phw--kepmap-add (cmd &optional verb)
+  "Augment `phw--kepmap' with a set of VERB bindings invoking CMD aliases."
+  (let ((fun (lambda () (cmd)))
+        (plist (symbol-plist cmd)))
+    (dolist (elt phw--window-targets)
+      (let ((alias (intern (concat (symbol-name cmd) "-" (cdr elt)))))
+        (defun alias () fun)
+        (define-key phw--keymap (concat phw-common-prefix verb (car elt)) alias)))))
+
+(defun phw--window-target-from-key ()
+  "Map a triggering key sequence's final event to a live window object.
+This function implements an analysis parallel to `phw--window-targets'."
+  (let ((selected (selected-window))
+        (event last-command-event)
+        target)
+    (unless (eq selected phw--window-PHW)
+      (setq phw--MR-window-edit selected))
+
+    ; Using 0 as the MINIBUFFER argument in calls to next-window and
+    ; previous-window enforces minibuffer exclusion.
+    (cond
+     ((= event ?0)                      ; PHW
+      (setq target phw--window-PHW))
+     ((<= ?1 event ?9)                  ; edit window N
+      (setq target phw--window-PHW)
+      (cl-loop repeat (- event ?0) do
+            (setq target (next-window target 0))))
+     ((= event ?f)                      ; successor edit window
+      (setq target phw--MR-window-edit)
+      (cl-loop do
+            (setq target (next-window target 0))
+            while (or (not (window-live-p target))
+                      (eq target phw--window-PHW))))
+     ((= event ?b)                      ; predecessor edit window
+      (setq target phw--MR-window-edit)
+      (cl-loop do
+            (setq target (previous-window target 0))
+            while (or (not (window-live-p target))
+                      (eq target phw--window-PHW))))
+     ((or (= event ?\,)                 ; toggle PHW and MR edit
+	  (= event (elt (kbd "C-,") 0)))
+      (setq target (if (eq selected phw--window-PHW)
+                       phw--MR-window-edit
+                     phw--window-PHW)))
+     ((or (= event ?\.)                 ; history previous edit
+     	  (= event (elt (kbd "C-.") 0)))
+      -1)
+     (t error "Unknown buffer key (%s)" event))
+    target))
+
+;;====================================================
+;; Activaton and deactivation
+;;====================================================
 
 (defun phw--active (activate)
   "Activate (display) or deactivate (retract) the PHW."
@@ -295,6 +306,8 @@ Always use phw--active."
 (defun phw--make-active ()
   "Effect globals changes necessary to make phw-mode active.
 Never call this function directly.  Always use phw--active."
+  (phw--create-keymap)
+
   ;; Save window-sides-slots and install our version
   (let ((slots window-sides-slots))
     (unless phw--window-sides-slots
@@ -311,7 +324,7 @@ Never call this function directly.  Always use phw--active."
   ;; Create the PHW and establish important parameters
 
   (let ((phw (split-window (frame-root-window)
-                           (- phw--edit-selected-min-PHW)
+                           (- phw--edit-selected-PHW-max)
                            (if phw-window-at-top-of-frame 'above 'below))))
     (setq phw--window-PHW phw)
     (window-preserve-size phw t t)
@@ -330,8 +343,14 @@ Never call this function directly.  Always use phw--active."
 ;;  (add-hook 'buffer-list-update-hook 'phw--on-window-change)
   )
 
+;;====================================================
+;; Window selection
+;;====================================================
+
 (defun phw--display-in-PHW (buffer alist)
-  ""
+  "If appropriate display BUFFER in PHW and return PHW's object else nil.
+This function gets registered as the `display-buffer-base-action'.
+This current implementation ignores the contents of ALIST."
   (with-current-buffer buffer
     (let ((phw phw--window-PHW)
           (win phw--window)
@@ -370,6 +389,10 @@ Never call this function directly.  Always use phw--active."
 ;      (message "--9--: return %s: %s" (phw-window-ordinal win) win)
       win)))
 
+;;====================================================
+;; Window tracking and resizing
+;;====================================================
+
 (defun phw--selected-window-adjust-height ()
   "A post-command-hook function to adjust the PHW's height."
   (let ((win (selected-window))
@@ -401,73 +424,14 @@ Never call this function directly.  Always use phw--active."
       (setq phw--MR-window-selected win)
       (setq phw--MR-buffer-selected buf))))
 
-(defun phw--window-from-keys ()
-  "Map a triggering key sequence's final event to a live window object.
-Mappings are:
-  '0'   : PHW
-  '1'   : edit window 1
-  '2'   : edit window 2
-  '3'   : edit window 3
-  '4'   : edit window 4
-  '5'   : edit window 5
-  '6'   : edit window 6
-  '7'   : edit window 7
-  '8'   : edit window 8
-  '9'   : edit window 9
-  'f'   : next edit window
-  'b'   : previous edit window
-  ','   : alternate between PHW and current edit window
-  'C-,' : alternate between PHW and current edit window
-  '.' ' : backwards through ring of recent edit windows
-  'C-.' : backwards through ring of recent edit windows"
-  (let ((selected (selected-window))
-        (event last-command-event)
-        target)
-    (unless (eq selected phw--window-PHW)
-      (setq phw--MR-window-edit selected))
-
-    ; Using 0 as the MINIBUFFER argument in calls to next-window and
-    ; previous-window is necessary to guarantee minibuffer exclusion.
-    (cond
-     ((= event ?0)                      ; PHW
-      (setq target phw--window-PHW))
-
-     ((<= ?1 event ?9)                  ; edit window N
-      (setq target phw--window-PHW)
-      (cl-loop repeat (- event ?0) do
-            (setq target (next-window target 0))))
-
-     ((= event ?f)                      ; next edit window
-      (setq target phw--MR-window-edit)
-      (cl-loop do
-            (setq target (next-window target 0))
-            while (or (not (window-live-p target))
-                      (eq target phw--window-PHW))))
-
-     ((= event ?b)                      ; previous edit window
-      (setq target phw--MR-window-edit)
-      (cl-loop do
-            (setq target (previous-window target 0))
-            while (or (not (window-live-p target))
-                      (eq target phw--window-PHW))))
-
-     ((or (= event ?\,)                 ; alternate PHW and edit
-	  (= event (elt (kbd "C-,") 0)))
-      (setq target (if (eq selected phw--window-PHW)
-                       phw--MR-window-edit
-                     phw--window-PHW)))
-
-     ((or (= event ?\.)                 ; pop to previous edit
-     	  (= event (elt (kbd "C-.") 0)))
-      -1)
-
-     (t error "Unknown buffer key (%s)" event))
-    target))
+;;====================================================
+;; Mode line stuff
+;;====================================================
 
 (defun phw-window-ordinal (&optional window)
   "Return a string representing WINDOW's navigation ordinal.
 This ordinal is WINDOW's position in the host frame's windows
-list counting from the PHW."
+list when counting from the PHW."
   (let ((target (window-normalize-window window t))
         (win phw--window-PHW)
         (ordinal 0))
@@ -482,24 +446,6 @@ list counting from the PHW."
 ;;   "Debuggind: return ID of selected window as a string"
 ;;   (let ((txt (substring (format "%s" window) (length "#<window "))))
 ;;     (substring txt 0 (string-match " " txt))))
-
-;;====================================================
-;; Interactive operations
-;;====================================================
-
-;;;###autoload
-(defun phw-goto-window ()
-  ""
-  (interactive)
-  (let ((win (phw--window-from-keys)))
-    (unless (eq win phw--window-PHW)
-      (setq phw--MR-window-edit win))
-    (when phw--debug
-      (message "Return %s, Selected %s, Last-edit %s"
-               win
-               (selected-window)
-               phw--MR-window-edit))
-    (select-window win)))
 
 ;;====================================================
 ;; Wrap up
