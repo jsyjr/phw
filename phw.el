@@ -157,10 +157,9 @@ equivalent to nil.  The system endeavors to display each buffers
 in the window to which it is bound.")
 
 ;;====================================================
-;; Interactive commands
+;; Interactive commands and corresponding trampolines
 ;;====================================================
 
-;;;###autoload
 (defun phw-goto-window ()
   (interactive)
   (let ((win (phw--window-target-from-key)))
@@ -174,8 +173,11 @@ in the window to which it is bound.")
     (select-window win)))
 
 (defun phw-goto-window-trampoline ()
-  "Move focus to window identified by trigger sequence's final event.
-Possisble focus targets are listed in `phw--window-targets'."
+  "Move focus to a window based on triggering key sequence's final event.
+The avaiable focus targets are listed in `phw--window-targets'.  Because
+this function's behavior is controlled by `last-command-event' it must
+always be called interactively."
+  (interactive)
   (phw-goto-window))
 
 ;;====================================================
@@ -220,7 +222,7 @@ uses TARGET as a suffix to create aliases for phw's generic commands."
       (let ((alias (intern (concat prefix (cdr elt))))
             (keyseq (kbd (concat phw-common-prefix " " verb " " (car elt)))))
         (fset alias body)
-        (put alias ':advertised-binding keyseq)
+;        (put alias ':advertised-binding keyseq)
         (message "ALIAS: %s = %s" alias (symbol-function alias))
         (define-key phw--keymap keyseq alias)
         ))))
@@ -232,6 +234,7 @@ uses TARGET as a suffix to create aliases for phw's generic commands."
   (phw--keymap-add-verb-group 'phw-goto-window))
 
 (phw--create-keymap)
+(define-key phw--keymap (kbd "C-, z z") 'phw-goto-window)
 
 (defun phw--window-target-from-key ()
   "Map a triggering key sequence's final event to a live window object.
