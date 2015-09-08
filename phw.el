@@ -1,4 +1,4 @@
-;;; phw.el --- a code browser for Emacs
+;;; phw.el --- a code browser for Emacs  -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2015 John S. Yates, Jr.
 
@@ -162,8 +162,6 @@ in the window to which it is bound.")
 
 ;;;###autoload
 (defun phw-goto-window ()
-  "Move focus to window identified by trigger sequence's final event.
-Possisble focus targets are listed in `phw--window-targets'."
   (interactive)
   (let ((win (phw--window-target-from-key)))
     (unless (eq win phw--window-PHW)
@@ -175,6 +173,11 @@ Possisble focus targets are listed in `phw--window-targets'."
                phw--MR-window-edit))
     (select-window win)))
 
+(defun phw-goto-window-trampoline ()
+  "Move focus to window identified by trigger sequence's final event.
+Possisble focus targets are listed in `phw--window-targets'."
+  (phw-goto-window))
+
 ;;====================================================
 ;; Keymap
 ;;====================================================
@@ -184,21 +187,21 @@ Possisble focus targets are listed in `phw--window-targets'."
 
 (defvar phw--window-targets
   '(("0"   . "PHW")
-    ("1"   . "edit-1")
-    ("2"   . "edit-2")
-    ("3"   . "edit-3")
-    ("4"   . "edit-4")
-    ("5"   . "edit-5")
-    ("6"   . "edit-6")
-    ("7"   . "edit-7")
-    ("8"   . "edit-8")
-    ("9"   . "edit-9")
-    ("f"   . "edit-successor")
-    ("b"   . "edit-predecessor")
-    (","   . "PHW-or-edit")
-    ("C-," . "PHW-or-edit")
-    ("."   . "history-previous-edit")
-    ("C-." . "history-previous-edit"))
+    ("1"   . "edit-window-1")
+    ("2"   . "edit-window-2")
+    ("3"   . "edit-window-3")
+    ("4"   . "edit-window-4")
+    ("5"   . "edit-window-5")
+    ("6"   . "edit-window-6")
+    ("7"   . "edit-window-7")
+    ("8"   . "edit-window-8")
+    ("9"   . "edit-window-9")
+    ("f"   . "successor-edit-window")
+    ("b"   . "predecessor-edit-window")
+    (","   . "PHW-or-edit-window")
+    ("C-," . "PHW-or-edit-window")
+    ("."   . "previous-edit-window")
+    ("C-." . "previous-edit-window"))
  "Map a triggering key sequence's final event to a window target suffix.
 Each entry is a cons (EVENT . TARGET) where EVENT is a string representing
 a triggering key sequence's final event and TARGET is a string describing
@@ -206,18 +209,22 @@ the associated target window.  During keymap construction `phw--keymap-add'
 uses TARGET as a suffix to create aliases for phw's generic commands."
 )
 
-(defmacro phw--alias-cmd (NAME CMD)
-  (list 'defun NAME ()
-        (list CMD)))
-
 (defun phw--keymap-add-verb-group (cmd &optional verb)
   "Augment `phw--keymap' with a set of VERB bindings invoking CMD aliases."
-  (dolist (elt phw--window-targets)
-    (let ((alias (concat (symbol-name cmd) "-" (cdr elt))))
-      (message "CMD:   %s = %s" cmd (symbol-function cmd))
-      (phw--alias-cmd alias cmd)
-      (message "ALIAS: %s = %s" (intern-soft alias) (symbol-function (intern-soft alias)))
-      (define-key phw--keymap (kbd (concat phw-common-prefix " " verb " " (car elt))) (intern-soft alias)))))
+  (message "CMD:   %s = %s" cmd (symbol-function cmd))
+  (let* ((name (symbol-name cmd))
+         (prefix (substring name 0 (string-match "window" name)))
+         (body (symbol-function (intern (concat name "-trampoline")))))
+    (message "- name= %s, prefix= %s, body= %s" name prefix body)
+    (dolist (elt phw--window-targets)
+      (let ((alias (intern (concat prefix (cdr elt))))
+            (keyseq (kbd (concat phw-common-prefix " " verb " " (car elt)))))
+        (fset alias body)
+        (put alias ':advertised-binding keyseq)
+        (message "ALIAS: %s = %s" alias (symbol-function alias))
+        (define-key phw--keymap keyseq alias)
+        ))))
+
 
 (defun phw--create-keymap ()
   "Create phw-mode's keymap taking using current `phw-common-prefix'."
