@@ -61,3 +61,12 @@ When edit:
 
 When PHW:
  - make PHW default-large
+
+Binding:
+overlaying a buffer => bind to current window
+kill => unbind from any window
+
+Bind BUF to WIN
+- unbind if phw--window is non-null
+- set phw--window = WIN
+- make 
