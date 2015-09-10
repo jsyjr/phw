@@ -55,16 +55,16 @@
 )
 
 (defcustom phw-window-at-top-of-frame nil
-  "Non-nil positions persistent horizontal window at top of frame."
+  "Non-nil positions the persistent horizontal window at top of frame."
   :group 'phw
   :type 'boolean)
 
-(defcustom phw--edit-selected-PHW-max 10
+(defcustom phw-edit-selected-PHW-max 10
   ""
   :group 'phw
   :type 'integer)
 
-(defcustom phw--PHW-selected-edit-min 20
+(defcustom phw-PHW-selected-edit-min 20
   ""
   :group 'phw
   :type 'integer)
@@ -115,16 +115,6 @@ Any successful match will cause a buffer to be displayed in the PHW."
 Any successful match will cause a buffer to be displayed in the PHW."
   :group 'phw
   :type '(repeat (string :tag "Buffer name regex")))
-
-(defcustom phw-minor-mode-text " PHW"
-  "String to display in the mode line when PHW minor mode is active.
-\(When the string is not empty, make sure that it has a leading space.)
-
-Because for PHW it is quite obvious if it is active or not when the
-PHW-windows are visible this text is only display in the modeline if the
-PHW-windows are hidden."
-  :group 'phw
-  :type 'string)
 
 
 (defgroup phw-hooks nil
@@ -216,7 +206,7 @@ Never call this function directly.  Always use phw--active."
 
   ;; Create the PHW and establish important parameters
   (let ((phw (split-window (frame-root-window)
-                           (- phw--edit-selected-PHW-max)
+                           (- phw-edit-selected-PHW-max)
                            (if phw-window-at-top-of-frame 'above 'below))))
     (setq phw--window-PHW phw)
     (window-preserve-size phw t t)
@@ -228,7 +218,7 @@ Never call this function directly.  Always use phw--active."
                             (error "delete-window: Cannot delete phw-mode's persistent horizontal window"))))
 
   ;; Establish a base action to direct some buffers to PHW
-  (setq display-buffer-base-action '(phw--display-in-PHW-p . nil))
+  (setq display-buffer-base-action '(phw--display-window . nil))
 
   (add-hook 'post-command-hook 'phw--selected-window-adjust-height)
 
@@ -382,10 +372,17 @@ This function implements an analysis parallel to `phw--window-targets'."
 ;; Window selection
 ;;====================================================
 
-(defun phw--display-in-PHW-p (buffer _alist)
-  "Return PHW's object if BUFFER should be displayed in PHW else nil.
+(defun phw--display-window (buffer _alist)
+  "Return a window object if BUFFER should be displayed there else nil.
+If BUFFER is bound to a live window then return that.  Otherwise if
+BUFFER satisfies one of the various PHW criteria (its major-mode
+is derived from a mode in `phw-display-in-PHW-major-modes', one of
+the `phw-display-in-PHW-predicates' returns true, it name is equal
+to one in `phw-display-in-PHW-buffer-names' or matches a regex in
+`phw-display-in-PHW-buffer-regexs') then return the PHW.
+
 This function gets registered as the `display-buffer-base-action'.
-This current implementation ignores the contents of ALIST."
+Currently the implementation ignores the contents of ALIST."
   (with-current-buffer buffer
     (let ((phw phw--window-PHW)
           (win phw--window)
@@ -444,7 +441,7 @@ This current implementation ignores the contents of ALIST."
             (cond
              ((eq win phw)
               (let ((point-saved (point)))
-                (setq height (- height phw--PHW-selected-edit-min))
+                (setq height (- height phw-PHW-selected-edit-min))
                 (goto-char (point-min))
                 (when (pos-visible-in-window-p (point-max))
                   (setq height (min height (count-lines (point-min) (point-max)))))
@@ -453,7 +450,7 @@ This current implementation ignores the contents of ALIST."
               )
              (t
               (setq phw--MR-window-edit win)
-              (setq height (- height phw--edit-selected-PHW-max))
+              (setq height (- height phw-edit-selected-PHW-max))
               (message "EDIT: %s height %s adjust %s" win height (- height (window-body-height)))
               ))
             (window-resize win (- height (window-body-height)))
