@@ -28,6 +28,7 @@
 
 (require 'cl-macs) ; for cl-loop
 (require 'compile) ; for compilation-buffer-p
+(require 'dash)
 
 ;;====================================================
 ;; Notes on overrides
@@ -226,20 +227,63 @@ Never call this function directly.  Always use phw--active."
   )
 
 ;;====================================================
+;; Buffer to window binding
+;;====================================================
+
+(defun phw-unbind (buf)
+  "Ensure that BUF is unbound"
+  (let (win phw--window)
+    (when win
+      (phw--window-purge-prev-buffers win buf)))
+  (kill-local-variable))
+
+(defun phw--window-prev-buffers-purge ()
+  ""
+  (let ((buf (current-buffer))
+        (win phw--window))
+    (set-window-prev-buffers
+     win
+     (-keep
+      (lambda (elt)
+        (let ((pbuf (car elf)))
+          (when (and (buffer-live-p pbuf)
+                     (not (eq pbuf buf)))
+            elt)))
+      (window-prev-buffers win)))))
+
+(defun phw--current-buffer-unbind ()
+  ""
+  (when phw--window
+    (phw--window-prev-buffers-purge))
+  ( (kill-local-variable phw--window)))
+
+(defun phw--bind (buf)
+  ""
+  )
+
+(defun phw--move-away (win)
+  ""
+  )
+
+(defun phw--move-to (win buf)
+  ""
+  )
+
+;;====================================================
 ;; Interactive commands and trampoline templates
 ;;====================================================
 
-(defun phw-goto-window-template ()
+(defun phw-select-window-template ()
   "Move focus to a window based on triggering key sequence's final key.
 
-This function is merely a trampoline for calling `phw-goto-window'.
+This function is merely a trampoline for calling `phw-select-window'.
 `phw--window-targets' tabulates the available trigger keys and their
 corresponding focus targets.  Only when called interactively will
 `last-command-event' contain an appropriate value to guide execution."
   (interactive)
-  (phw-goto-window))
+  (phw-select-window))
 
-(defun phw-goto-window ()
+(defun phw-select-window ()
   (interactive)
   (let ((dst-win (phw--window-target-from-key)))
     (when dst-win
@@ -248,7 +292,8 @@ corresponding focus targets.  Only when called interactively will
 (defun phw-exchange-windows-template ()
   "Exchange window contents based on triggering key sequence's final key.
 Display the current window's buffer in the target window and the target
-window's buffer in the current window.  Move focus to the target window.
+window's buffer in the current window.  The previously current buffer
+remains current though now displayed in a newly selected window..
 
 This function is merely a trampoline for calling `phw-exchange-windows'.
 `phw--window-targets' tabulates the available trigger keys and their
@@ -362,7 +407,7 @@ This function implements an analysis parallel to `phw--window-targets'."
 (defun phw--create-keymap ()
   "Create phw-mode's keymap using current `phw-common-prefix'."
   (setq phw--keymap (make-sparse-keymap))
-  (phw--keymap-add-verb-group 'phw-goto-window)
+  (phw--keymap-add-verb-group 'phw-select-window)
   (phw--keymap-add-verb-group 'phw-exchange-windows "x"))
 
 ;; Perform construction during load.
