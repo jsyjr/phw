@@ -230,15 +230,9 @@ Never call this function directly.  Always use phw--active."
 ;; Buffer to window binding
 ;;====================================================
 
-(defun phw-unbind (buf)
-  "Ensure that BUF is unbound"
-  (let (win phw--window)
-    (when win
-      (phw--window-purge-prev-buffers win buf)))
-  (kill-local-variable))
-
 (defun phw--window-prev-buffers-purge ()
-  ""
+  "Cleanse current buffer's window history list.  On return
+neither current nor any dead buffers remain."
   (let ((buf (current-buffer))
         (win phw--window))
     (set-window-prev-buffers
@@ -252,10 +246,10 @@ Never call this function directly.  Always use phw--active."
       (window-prev-buffers win)))))
 
 (defun phw--current-buffer-unbind ()
-  ""
+  "Ensure that current buffer is unbound"
   (when phw--window
     (phw--window-prev-buffers-purge))
-  ( (kill-local-variable phw--window)))
+  (kill-local-variable phw--window))
 
 (defun phw--bind (buf)
   ""

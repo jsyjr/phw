@@ -62,11 +62,24 @@ When edit:
 When PHW:
  - make PHW default-large
 
-Binding:
-overlaying a buffer => bind to current window
-kill => unbind from any window
+
+
+Unbind BUF from WIN
+- remove BUF from WIN's ring
+- clean WIN's ring
+- kill BUF's phw--window
 
 Bind BUF to WIN
-- unbind if phw--window is non-null
-- set phw--window = WIN
-- make 
+- if BUF's phw--window is non-nil then unbind from there
+- set BUF's phw--window = WIN
+- clean WIN's ring
+- make BUF most recent entry in WIN's ring
+
+Operations:
+- display BUF in WIN
+  => bind previous BUF to WIN (BUF remains unbound)
+- move BUF
+  => unbind BUF from current WIN
+- exchange BUF1 and BUF2
+- kill BUF
+  => unbind BUF from current WIN
