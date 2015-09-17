@@ -230,38 +230,28 @@ Never call this function directly.  Always use phw--active."
 ;; Buffer to window binding
 ;;====================================================
 
-(defun phw--window-prev-buffers-purge ()
-  "Cleanse current buffer's window history list.  On return
-neither current nor any dead buffers remain."
-  (let ((buf (current-buffer))
-        (win phw--window))
-    (set-window-prev-buffers
-     win
-     (-keep
-      (lambda (elt)
-        (let ((pbuf (car elf)))
-          (when (and (buffer-live-p pbuf)
-                     (not (eq pbuf buf)))
-            elt)))
-      (window-prev-buffers win)))))
+(defun phw--cleanse-window-history (buf win)
+  "Cleanse BUF and any dead buffers from WIN's history list."
+  (set-window-prev-buffers
+   win
+   (-keep
+    (lambda (elt)
+      (let ((pbuf (car elt)))
+        (when (and (buffer-live-p pbuf)
+                   (not (eq pbuf buf)))
+          elt)))
+    (window-prev-buffers win))))
 
-(defun phw--current-buffer-unbind ()
-  "Ensure that current buffer is unbound"
-  (when phw--window
-    (phw--window-prev-buffers-purge))
-  (kill-local-variable phw--window))
-
-(defun phw--bind (buf)
-  ""
-  )
-
-(defun phw--move-away (win)
-  ""
-  )
-
-(defun phw--move-to (win buf)
-  ""
-  )
+(defun phw--move-from-to (buf from to)
+  "Bury BUF; cleanse FROM's history; bind to TO, display and select."
+  (let ((bound phw--window))    ; capture local var before bury-buffer
+    (setq-local phw--window to)
+    (bury-buffer buf)
+    (when (and bound (not (eq bound from)))
+      (phw--cleanse-window-history buf bound)))
+  (phw--cleanse-window-history buf from)
+  (select-window to)
+  (set-window-buffer to buf))
 
 ;;====================================================
 ;; Interactive commands and trampoline templates
@@ -283,6 +273,24 @@ corresponding focus targets.  Only when called interactively will
     (when dst-win
       (select-window dst-win))))
 
+(defun phw-move-buffer-to-window-template ()
+  "Move current buffer based on triggering key sequence's final key.
+Display the current buffer in the target window.  Focus remains with
+that buffer.
+
+This is merely a trampoline for calling `phw--move-buffer-to-windows'.
+`phw--window-targets' tabulates the available trigger keys and their
+corresponding focus targets.  Only when called interactively will
+`last-command-event' contain an appropriate value to guide execution."
+  (interactive)
+  (phw-exchange-windows))
+
+(defun phw-move-buffer-to-window ()
+  (interactive)
+  (let ((dst-win (phw--window-target-from-key)))
+    (when dst-win
+      (phw--move-from-to (current-buffer) (selected-window) dst-win))))
+
 (defun phw-exchange-windows-template ()
   "Exchange window contents based on triggering key sequence's final key.
 Display the current window's buffer in the target window and the target
@@ -296,22 +304,17 @@ corresponding focus targets.  Only when called interactively will
   (interactive)
   (phw-exchange-windows))
 
-(defun phw--move-window-update-binding (win buf)
-  ""
-  (set-window-buffer win buf)
-  (with-current-buffer buf
-    (setq-local phw--window win)))
-
 (defun phw-exchange-windows ()
   (interactive)
   (let ((dst-win (phw--window-target-from-key)))
     (when dst-win
       (let* ((dst-buf (window-buffer dst-win))
              (src-win (selected-window))
-             (src-buf (window-buffer src-win)))
-        (phw--move-window-update-binding dst-win src-buf)
-        (phw--move-window-update-binding src-win dst-buf)
-        (select-window dst-win)))))
+             (src-buf (current-buffer)))
+        (with-current-buffer dst-buf
+          (phw--move-from-to dst-buf dst-win src-win)
+        (with-current-buffer src-buf
+          (phw--move-from-to src-buf src-win dst-win)))))))
 
 ;;====================================================
 ;; Command key to window target mapping
@@ -402,6 +405,7 @@ This function implements an analysis parallel to `phw--window-targets'."
   "Create phw-mode's keymap using current `phw-common-prefix'."
   (setq phw--keymap (make-sparse-keymap))
   (phw--keymap-add-verb-group 'phw-select-window)
+  (phw--keymap-add-verb-group 'phw-move-buffer-to-window "m")
   (phw--keymap-add-verb-group 'phw-exchange-windows "x"))
 
 ;; Perform construction during load.
