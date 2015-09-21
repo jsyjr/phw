@@ -48,7 +48,7 @@
   :group 'windows
   :prefix "phw-")
 
-(defcustom phw-common-prefix "C-,"
+(defcustom phw-prefix-key "C-,"
   ""
   :group 'phw
   :type 'key-sequence
@@ -142,15 +142,13 @@ Any successful match will cause a buffer to be displayed in the PHW."
 (defvar phw--window-sides-slots nil
   "Save window-sides-slots from mode enable time.")
 
-(defvar phw--keymap '(keymap)
-  "Keymap when phw-mode is enable.")
-
 ;; Buffer local
 (defvar-local phw--window nil
   "A buffer's window binding.  It contains either nil (no
 binding) or a window object.  A non-live window object is
 equivalent to nil.  The system endeavors to display each buffers
 in the window to which it is bound.")
+
 
 ;;====================================================
 ;; Activaton and deactivation
@@ -174,8 +172,7 @@ full access to the frame or it may be because phw-mode is being
 disabled.  This function is idem potent: calling it repeatedly
 should have no ill-effects.  Never call this function directly.
 Always use phw--active."
-;;  (remove-hook 'buffer-list-update-hook 'phw--on-window-change)
-  (remove-hook 'post-command-hook 'phw--selected-window-adjust-height)
+  (remove-hook 'post-command-hook 'phw--post-command)
 
   ;; Remove our display action.
   (setq display-buffer-base-action nil)
@@ -221,10 +218,11 @@ Never call this function directly.  Always use phw--active."
   ;; Establish a base action to direct some buffers to PHW
   (setq display-buffer-base-action '(phw--display-window . nil))
 
-  (add-hook 'post-command-hook 'phw--selected-window-adjust-height)
+  (add-hook 'post-command-hook 'phw--post-command)
 
 ;;  (add-hook 'buffer-list-update-hook 'phw--on-window-change)
   )
+
 
 ;;====================================================
 ;; Buffer to window binding
@@ -252,6 +250,7 @@ Never call this function directly.  Always use phw--active."
   (phw--cleanse-window-history buf from)
   (select-window to)
   (set-window-buffer to buf))
+
 
 ;;====================================================
 ;; Interactive commands and trampoline templates
@@ -315,6 +314,7 @@ corresponding focus targets.  Only when called interactively will
           (phw--move-from-to dst-buf dst-win src-win)
         (with-current-buffer src-buf
           (phw--move-from-to src-buf src-win dst-win)))))))
+
 
 ;;====================================================
 ;; Command key to window target mapping
@@ -386,9 +386,17 @@ This function implements an analysis parallel to `phw--window-targets'."
      (t error "Unknown buffer key (%s)" event))
     target))
 
+
 ;;====================================================
 ;; Construct keymap and trampoline functions
 ;;====================================================
+
+(defvar phw--keymap '(keymap)
+  "Keymap when phw-mode is enable.")
+
+(defvar phw--keymap-prefix nil
+  "Key containing only PHW mode's prefix and \"C-h\".")
+
 
 (defun phw--keymap-add-verb-group (cmd &optional verb)
   "Augment `phw--keymap' with VERB bindings invoking CMD trampolines."
@@ -397,19 +405,25 @@ This function implements an analysis parallel to `phw--window-targets'."
          (body (symbol-function (intern (concat name "-template")))))
     (dolist (elt phw--window-targets)
       (let ((alias (intern (concat prefix (cdr elt))))
-            (keyseq (kbd (concat phw-common-prefix " " verb " " (car elt)))))
+            (keyseq (kbd (concat phw-prefix-key " " verb " " (car elt)))))
         (fset alias body)
         (define-key phw--keymap keyseq alias)))))
 
-(defun phw--create-keymap ()
-  "Create phw-mode's keymap using current `phw-common-prefix'."
+(defun phw--create-keymaps ()
+  "Create phw-mode's keymap using current `phw-prefix-key'.
+Decomposes that map seen by "C-h k" into phw--map-prefix (to enable
+displaying prompts) and phw--map-continuation (to complete decoding)."
   (setq phw--keymap (make-sparse-keymap))
   (phw--keymap-add-verb-group 'phw-select-window)
   (phw--keymap-add-verb-group 'phw-move-buffer-to-window "m")
-  (phw--keymap-add-verb-group 'phw-exchange-windows "x"))
+  (phw--keymap-add-verb-group 'phw-exchange-windows "x")
+
+  (setq phw--keymap-prefix (make-sparse-keymap))
+  (define-key phw--keymap-prefix (kbd phw-prefix-key) 'phw--caught-prefix)
+  (define-key phw--keymap-prefix (kbd "C-h") 'phw--caught-prefix))
 
 ;; Perform construction during load.
-(phw--create-keymap)
+(phw--create-keymaps)
 
 ;;====================================================
 ;; Window selection
@@ -464,11 +478,15 @@ Currently the implementation ignores the contents of ALIST."
 ;      (message "--9--: return %s: %s" (phw-window-ordinal win) win)
       win)))
 
+
 ;;====================================================
 ;; Window tracking and resizing in post-command-hook
 ;;====================================================
 
-(defun phw--selected-window-adjust-height ()
+(defvar phw--need-full-keymap nil
+  "")
+
+(defun phw--post-command ()
   "A post-command-hook function to adjust the PHW's height."
   (let ((win (selected-window)))
     (unless (minibuffer-window-active-p win)
@@ -498,7 +516,30 @@ Currently the implementation ignores the contents of ALIST."
               ))
             (window-resize win (- height (window-body-height)))
             (setq phw--MR-window-selected win)
-            (setq phw--MR-buffer-selected buf)))))))
+            (setq phw--MR-buffer-selected buf))))))
+
+  (cond
+   (phw--need-full-keymap
+    (setq phw--need-full-keymap nil))
+   (t
+    (set-transient-map phw--keymap-prefix)))
+
+  )
+
+(defun phw--caught-prefix ()
+  ""
+  (interactive)
+  (setq phw--need-full-keymap t)
+  (setq unread-command-events (list last-command-event))
+  (when (eq last-command-event (aref (kbd phw-prefix-key) 0))
+    (message "-- Prompt ^^")
+    (add-hook 'pre-command-hook 'phw--pre-command)))
+
+(defun phw--pre-command ()
+  ""
+  (message "-- Prompt vv")
+  (remove-hook 'pre-command-hook 'phw--pre-command))
+
 
 ;;====================================================
 ;; Mode line stuff
@@ -518,10 +559,6 @@ list when counting from the PHW."
             (setq win (next-window win 0)))
       (number-to-string ordinal))))
 
-;; (defun phw-window-ordinal (window)
-;;   "Debuggind: return ID of selected window as a string"
-;;   (let ((txt (substring (format "%s" window) (length "#<window "))))
-;;     (substring txt 0 (string-match " " txt))))
 
 ;;====================================================
 ;; Minor mode delcaration
