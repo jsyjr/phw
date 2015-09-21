@@ -483,7 +483,7 @@ Currently the implementation ignores the contents of ALIST."
 ;; Window tracking and resizing in post-command-hook
 ;;====================================================
 
-(defvar phw--need-full-keymap nil
+(defvar phw--use-full-keymap nil
   "")
 
 (defun phw--post-command ()
@@ -519,8 +519,8 @@ Currently the implementation ignores the contents of ALIST."
             (setq phw--MR-buffer-selected buf))))))
 
   (cond
-   (phw--need-full-keymap
-    (setq phw--need-full-keymap nil))
+   (phw--use-full-keymap
+    (setq phw--use-full-keymap nil))
    (t
     (set-transient-map phw--keymap-prefix)))
 
@@ -529,7 +529,7 @@ Currently the implementation ignores the contents of ALIST."
 (defun phw--caught-prefix ()
   ""
   (interactive)
-  (setq phw--need-full-keymap t)
+  (setq phw--use-full-keymap t)
   (setq unread-command-events (list last-command-event))
   (when (eq last-command-event (aref (kbd phw-prefix-key) 0))
     (message "-- Prompt ^^")
