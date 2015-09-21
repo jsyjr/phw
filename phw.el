@@ -212,6 +212,8 @@ Never call this function directly.  Always use phw--active."
     (set-window-parameter phw 'window-side
                           (if phw-window-at-top-of-frame 'top 'bottom))
     (set-window-parameter phw 'no-other-window t)
+    (set-window-parameter phw 'split-window
+                          (lambda (_win _size _side) phw--window-PHW))
     (set-window-parameter phw 'delete-window
                           (lambda (_win)
                             (error "delete-window: Cannot delete phw-mode's persistent horizontal window"))))
