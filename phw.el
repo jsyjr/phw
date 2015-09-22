@@ -564,6 +564,19 @@ list when counting from the PHW."
 
 
 ;;====================================================
+;; Echo area stuff
+;;====================================================
+
+(advice-add 'display-message-or-buffer :around #'my/advise-display-message-or-buffer)
+
+(defun my/advise-display-message-or-buffer (_msg &optional _bnam _ntw _frm)
+  "Direct any output greate than one line to the PHW."
+  (let ((resize-mini-windows (if phw-mode
+                                 nil
+                               resize-mini-windows)))))
+
+
+;;====================================================
 ;; Minor mode delcaration
 ;;====================================================
 
