@@ -495,7 +495,12 @@ Currently the implementation ignores the contents of ALIST."
   "")
 
 (defun phw--post-command ()
-  "A post-command-hook function to adjust the PHW's height."
+  "A post-command-hook function: reset keymap, adjust the PHW's height."
+  (cond
+   (phw--use-full-keymap
+    (setq phw--use-full-keymap nil))
+   (t
+    (set-transient-map phw--keymap-prefix)))
   (let ((win (selected-window)))
     (unless (minibuffer-window-active-p win)
       (let ((buf (current-buffer)))
@@ -525,13 +530,6 @@ Currently the implementation ignores the contents of ALIST."
             (window-resize win (- height (window-body-height)))
             (setq phw--MR-window-selected win)
             (setq phw--MR-buffer-selected buf))))))
-
-  (cond
-   (phw--use-full-keymap
-    (setq phw--use-full-keymap nil))
-   (t
-    (set-transient-map phw--keymap-prefix)))
-
   )
 
 (defun phw--caught-prefix ()
