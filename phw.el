@@ -414,44 +414,6 @@ This function implements an analysis parallel to `phw--window-targets'."
 
 
 ;;====================================================
-;; Construct keymap and trampoline functions
-;;====================================================
-
-(defvar phw--keymap '(keymap)
-  "Keymap when phw-mode is enable.")
-
-(defvar phw--keymap-prefix nil
-  "Key containing only PHW mode's prefix and \"C-h\".")
-
-
-(defun phw--keymap-add-verb-group (cmd &optional verb)
-  "Augment `phw--keymap' with VERB bindings invoking CMD trampolines."
-  (let* ((name (symbol-name cmd))
-         (prefix (substring name 0 (string-match "window" name)))
-         (body (symbol-function (intern (concat name "-template")))))
-    (dolist (elt phw--window-targets)
-      (let ((alias (intern (concat prefix (cdr elt))))
-            (keyseq (kbd (concat phw-prefix-key " " verb " " (car elt)))))
-        (fset alias body)
-        (define-key phw--keymap keyseq alias)))))
-
-(defun phw--create-keymaps ()
-  "Create phw-mode's keymap using current `phw-prefix-key'.
-Decomposes that map seen by "C-h k" into phw--map-prefix (to enable
-displaying prompts) and phw--map-continuation (to complete decoding)."
-  (setq phw--keymap (make-sparse-keymap))
-  (phw--keymap-add-verb-group 'phw-select-window)
-  (phw--keymap-add-verb-group 'phw-move-buffer-to-window "m")
-  (phw--keymap-add-verb-group 'phw-exchange-windows "x")
-
-  (setq phw--keymap-prefix (make-sparse-keymap))
-  (define-key phw--keymap-prefix (kbd phw-prefix-key) 'phw--caught-prefix)
-  (define-key phw--keymap-prefix (kbd "C-h") 'phw--caught-prefix))
-
-;; Perform construction during load.
-(phw--create-keymaps)
-
-;;====================================================
 ;; Window selection
 ;;====================================================
 
@@ -503,6 +465,57 @@ Currently the implementation ignores the contents of ALIST."
         (window--display-buffer buffer win 'reuse))
 ;      (message "--9--: return %s: %s" (phw-window-ordinal win) win)
       win)))
+
+
+;;====================================================
+;; Construct keymap and trampoline functions
+;;====================================================
+
+(defvar phw--keymap '(keymap)
+  "Keymap when phw-mode is enable.")
+
+(defvar phw--keymap-prefix nil
+  "Key containing only PHW mode's prefix and \"C-h\".")
+
+
+(defun phw--keymap-add-verb-group (cmd &optional verb)
+  "Augment `phw--keymap' with VERB bindings invoking CMD trampolines."
+  (let* ((name (symbol-name cmd))
+         (prefix (substring name 0 (string-match "window" name)))
+         (body (symbol-function (intern (concat name "-template")))))
+    (dolist (elt phw--window-targets)
+      (let ((alias (intern (concat prefix (cdr elt))))
+            (keyseq (kbd (concat phw-prefix-key " " verb " " (car elt)))))
+        (fset alias body)
+        (define-key phw--keymap keyseq alias)))))
+
+(defun phw--create-keymaps ()
+  "Create phw-mode's keymap using current `phw-prefix-key'.
+Decomposes that map seen by "C-h k" into phw--map-prefix (to enable
+displaying prompts) and phw--map-continuation (to complete decoding)."
+  (setq phw--keymap (make-sparse-keymap))
+  (phw--keymap-add-verb-group 'phw-select-window)
+  (phw--keymap-add-verb-group 'phw-move-buffer-to-window "m")
+  (phw--keymap-add-verb-group 'phw-kill-buffer-in-window "k")
+  (phw--keymap-add-verb-group 'phw-exchange-windows "x")
+
+  (setq phw--keymap-prefix (make-sparse-keymap))
+  (define-key phw--keymap-prefix (kbd phw-prefix-key) 'phw--caught-prefix)
+  (define-key phw--keymap-prefix (kbd "C-h") 'phw--caught-prefix))
+
+;; Perform construction during load.
+(phw--create-keymaps)
+
+;;====================================================
+;; Minor mode delcaration
+;;====================================================
+
+;;;###autoload
+(define-minor-mode phw-mode nil  ; let d-m-m supply doc stri-
+  :group 'phw
+  :global t
+  :keymap phw--keymap
+  (phw--active phw-mode))
 
 
 ;;====================================================
@@ -623,17 +636,6 @@ list when counting from the PHW."
 
 (advice-add 'delete-window :after #'phw--advise-delete-window)
 
-
-;;====================================================
-;; Minor mode delcaration
-;;====================================================
-
-;;;###autoload
-(define-minor-mode phw-mode nil  ; let d-m-m supply doc stri-
-  :group 'phw
-  :global t
-  :keymap phw--keymap
-  (phw--active phw-mode))
 
 ;;====================================================
 ;; Wrap up
