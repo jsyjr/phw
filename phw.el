@@ -583,20 +583,27 @@ list when counting from the PHW."
 ;; Window balancing
 ;;====================================================
 
-(advice-add 'split-window :after #'my/advise-split-window)
+(defun phw--balance-windows ()
+  "Rebalance window sizes while protecting PHW's height"
+  (when (and phw-mode phw-keep-windows-balanced)
+    (let ((parent (window-parent)))
+      (when (and phw--window-PHW (not (eq phw--window-PHW (frame-root-window))))
+        (window-preserve-size phw--window-PHW nil t)
+        (balance-windows parent)
+        (window-preserve-size phw--window-PHW nil nil)))))
 
-(defun my/advise-split-window (&optional _win size _side _pxl)
+(defun phw--advise-split-window (&optional _win size _side _pxl)
   "Balance windows following a split if no explicit size was given."
-  (when phw-keep-windows-balanced
-    (unless size
-      (balance-windows))))
+  (unless size
+    (phw--balance-windows)))
 
-(advice-add 'delete-window :after #'my/advise-delete-window)
+(advice-add 'split-window :after #'phw--advise-split-window)
 
-(defun my/advise-delete-window (&optional _win)
+(defun phw--advise-delete-window (&optional _win)
   "Balance windows following a deletion."
-  (when phw-keep-windows-balanced
-    (balance-windows)))
+  (phw--balance-windows))
+
+(advice-add 'delete-window :after #'phw--advise-delete-window)
 
 
 ;;====================================================
