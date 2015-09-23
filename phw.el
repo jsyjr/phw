@@ -298,6 +298,24 @@ corresponding focus targets.  Only when called interactively will
     (when dst-win
       (phw--move-from-to (current-buffer) (selected-window) dst-win))))
 
+(defun phw-kill-buffer-in-window-template ()
+  "Kill buffer in window based on triggering key sequence's final key.
+Focus remains in the current window.
+
+This is merely a trampoline for calling `phw-kill-buffer-in-windows'.
+`phw--window-targets' tabulates the available trigger keys and their
+corresponding focus targets.  Only when called interactively will
+`last-command-event' contain an appropriate value to guide execution."
+  (interactive)
+  (phw-exchange-windows))
+
+(defun phw-kill-buffer-in-window ()
+  (interactive)
+  (let ((dst-win (phw--window-target-from-key)))
+    (when dst-win
+      (with-selected-window dst-win
+        (kill-buffer)))))
+
 (defun phw-exchange-windows-template ()
   "Exchange window contents based on triggering key sequence's final key.
 Display the current window's buffer in the target window and the target
