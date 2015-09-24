@@ -618,7 +618,7 @@ list when counting from the PHW."
   "Rebalance window sizes while protecting PHW's height"
   (when (and phw-mode phw-keep-windows-balanced)
     (let ((parent (window-parent)))
-      (when (and phw--window-PHW (not (eq phw--window-PHW (frame-root-window))))
+      (when (and phw--window-PHW (not (eq parent (frame-root-window))))
         (window-preserve-size phw--window-PHW nil t)
         (balance-windows parent)
         (window-preserve-size phw--window-PHW nil nil)))))
