@@ -29,6 +29,7 @@
 (require 'cl-macs) ; for cl-loop
 (require 'compile) ; for compilation-buffer-p
 (require 'dash)
+(require 'view)
 
 ;;====================================================
 ;; Notes on overrides
@@ -635,6 +636,56 @@ list when counting from the PHW."
   (phw--balance-windows))
 
 (advice-add 'delete-window :after #'phw--advise-delete-window)
+
+
+;;====================================================
+;; Debugging
+;;====================================================
+
+(defun phw--show-buffer (buf)
+  "Return a string with BUF's window binding and name."
+  (with-current-buffer buf
+    (format "%s: %s"
+            (if phw--window (phw-window-ordinal phw--window) "_")
+            buf)))
+
+(defun phw-debug ()
+  "Pop up a display of windows, their buffers and history lists."
+  (interactive)
+  (let ((cur-win (selected-window))
+        (cur-buf (current-buffer))
+        (lists (get-buffer-create " *Window History Lists*")))
+    (with-current-buffer lists
+      (read-only-mode -1)
+      (erase-buffer)
+      (insert (format "Current: window %s : %s\n"
+                      (phw-window-ordinal cur-win)
+                      cur-buf))
+      (insert (format "MR:      window %s : %s\n"
+                      (phw-window-ordinal phw--MR-window-selected)
+                      phw--MR-buffer-selected))
+      (insert (format "MR edit: window %s\n\n"
+                      (phw-window-ordinal phw--MR-window-edit)))
+
+      (let ((win phw--window-PHW))
+        (cl-loop with win = phw--window-PHW for ordinal by 1 do
+                 (insert
+                  (format "Window %d: %s  [%s]\n" ordinal win
+                          (phw--show-buffer (window-buffer win))))
+                 (insert (format "  Prev:\n"))
+                 (loop for (buf) in (window-prev-buffers win) do
+                       (insert (concat "    " (phw--show-buffer buf) "\n")))
+                 (insert (format "  Next:\n"))
+                 (loop for buf in (window-next-buffers win) do
+                       (insert (concat "    " (phw--show-buffer buf) "\n")))
+                 (setq win (next-window win 0))
+                 until (eq phw--window-PHW win))
+        (set-buffer-modified-p nil)
+        (view-mode 1)
+        (set-window-buffer win lists)
+        (select-window win t)))))
+
+(define-key phw--keymap (kbd (concat phw-prefix-key " d")) 'phw-debug)
 
 
 ;;====================================================
