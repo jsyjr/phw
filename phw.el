@@ -180,7 +180,8 @@ disabled.  This function is idem potent: calling it repeatedly
 should have no ill-effects.  Never call this function directly.
 Always use phw--active."
   (remove-hook 'post-command-hook 'phw--post-command)
-
+  (remove-hook 'window-configuration-change-hook
+               'phw--window-configuration-change)
   ;; Remove our display action.
   (setq display-buffer-base-action nil)
   ;; Restore original window-sides-slots
@@ -228,9 +229,8 @@ Never call this function directly.  Always use phw--active."
   (setq display-buffer-base-action '(phw--display-window . nil))
 
   (add-hook 'post-command-hook 'phw--post-command)
-
-;;  (add-hook 'buffer-list-update-hook 'phw--on-window-change)
-  )
+  (add-hook 'window-configuration-change-hook
+            'phw--window-configuration-change))
 
 
 ;;====================================================
@@ -577,6 +577,10 @@ displaying prompts) and phw--map-continuation (to complete decoding)."
   ""
   (message "-- Prompt vv")
   (remove-hook 'pre-command-hook 'phw--pre-command))
+
+(defun phw--window-configuration-change ()
+  "Bind a buffer to its current window."
+  (setq-local phw--window (selected-window)))
 
 
 ;;====================================================
