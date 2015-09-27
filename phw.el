@@ -238,27 +238,46 @@ Never call this function directly.  Always use phw--active."
 ;;====================================================
 
 (defun phw--cleanse-window-history (buf win)
-  "Cleanse BUF and any dead buffers from WIN's history list."
+  "Cleanse BUF and any dead or unbound buffers from WIN's history list."
   (set-window-prev-buffers
    win
    (-keep
     (lambda (elt)
       (let ((pbuf (car elt)))
-        (when (and (buffer-live-p pbuf)
-                   (not (eq pbuf buf)))
+        (when (and                       ; preserve so long as
+               (buffer-live-p pbuf)      ;   live
+               (not (eq pbuf buf))       ;   not BUF
+               (with-current-buffer pbuf ;   bound to WIN
+                 (and phw--window (eq phw--window win))))
           elt)))
     (window-prev-buffers win))))
 
+(defun phw--switch-to-previous-buffer (buf win purge)
+  "Replace BUF by displaying a previous buffer from WIN's history.
+If PURGE is j-nil exclude BUF from WIN's history.  BUF and WIN are
+actually convenience args as they must be current."
+  ;; If BUF bound to window other than WIN then cleanse that window.
+  (let ((bound-window phw--window))
+    (when (and bound-window (not (eq bound-window win)))
+      (phw--cleanse-window-history buf bound-window)))
+  ;; If BUF is not to be purged then bind it to WIN
+  (when (null purge)
+    (setq-local phw--window win))
+  ;; Cleanse WIN's history possibly excluding BUF
+  (phw--cleanse-window-history (if purge buf nil) win)
+  ;; Pass purge as bury-or-kill
+  (switch-to-prev-buffer win purge))
+
 (defun phw--move-from-to (buf from to)
-  "Bury BUF; cleanse FROM's history; bind to TO, display and select."
-  (let ((bound phw--window))    ; capture local var before bury-buffer
-    (setq-local phw--window to)
-    (bury-buffer buf)
-    (when (and bound (not (eq bound from)))
-      (phw--cleanse-window-history buf bound)))
-  (phw--cleanse-window-history buf from)
+  "Purge BUF from FROM's window & history; display & select BUF in TO.
+BUF and FROM are actually convenience args as they must be current."
+  (phw--switch-to-previous-buffer buf from t)
   (select-window to)
-  (set-window-buffer to buf))
+  (with-current-buffer (window-buffer)
+    (when (null phw--window)
+      (setq-local phw--window to)))
+  (set-window-buffer to buf)
+  (setq-local phw--window to))
 
 
 ;;====================================================
