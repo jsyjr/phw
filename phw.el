@@ -538,6 +538,7 @@ displaying prompts) and phw--map-continuation (to complete decoding)."
 ;; Minor mode delcaration
 ;;====================================================
 
+;; Positioned here to avoid compilation warnings
 ;;;###autoload
 (define-minor-mode phw-mode nil  ; let d-m-m supply doc stri-
   :group 'phw
