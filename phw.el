@@ -548,52 +548,15 @@ displaying prompts) and phw--map-continuation (to complete decoding)."
 
 
 ;;====================================================
-;; Window tracking and resizing in post-command-hook
+;; Window tracking and resizing via hook functions
 ;;====================================================
 
 (defvar phw--use-full-keymap nil
-  "")
-
-(defun phw--post-command ()
-  "A post-command-hook function: reset keymap, adjust the PHW's height."
-  (cond
-   (phw--use-full-keymap
-    (setq phw--use-full-keymap nil))
-   (t
-    (set-transient-map phw--keymap-prefix)))
-  (let ((win (selected-window)))
-    (unless (minibuffer-window-active-p win)
-      (let ((buf (current-buffer)))
-        (unless (and (eq win phw--MR-window-selected)
-                     (eq buf phw--MR-buffer-selected))
-          (let ((phw phw--window-PHW)
-                height)
-            (message "win %s, buf %s, phw %s" win buf phw)
-            (save-window-excursion
-              (maximize-window)
-              (setq height (window-body-height)))
-            (cond
-             ((eq win phw)
-              (let ((point-saved (point)))
-                (setq height (- height phw-PHW-selected-edit-min))
-                (goto-char (point-min))
-                (when (pos-visible-in-window-p (point-max))
-                  (setq height (min height (count-lines (point-min) (point-max)))))
-                (goto-char point-saved))
-              (message "PHW : %s height %s adjust %s" win height (- height (window-body-height)))
-              )
-             (t
-              (setq phw--MR-window-edit win)
-              (setq height (- height phw-edit-selected-PHW-max))
-              (message "EDIT: %s height %s adjust %s" win height (- height (window-body-height)))
-              ))
-            (window-resize win (- height (window-body-height)))
-            (setq phw--MR-window-selected win)
-            (setq phw--MR-buffer-selected buf))))))
-  )
+  "Flag to request use of the full keymap for one command cycle.
+At all other times phw--kepmap-prefix is in effect.")
 
 (defun phw--caught-prefix ()
-  ""
+  "On C-h or prefix key setup single command use of full keymap."
   (interactive)
   (setq phw--use-full-keymap t)
   (setq unread-command-events (list last-command-event))
@@ -602,9 +565,49 @@ displaying prompts) and phw--map-continuation (to complete decoding)."
     (add-hook 'pre-command-hook 'phw--pre-command)))
 
 (defun phw--pre-command ()
-  ""
+  "Resume using prefix map following single command use of full keymap."
   (message "-- Prompt vv")
   (remove-hook 'pre-command-hook 'phw--pre-command))
+
+(defun phw--post-command ()
+  "A post-command-hook function: reset keymap, adjust the PHW's height.
+Also handles setting-up the appropriate keymap for every command cycle."
+  (cond
+   (phw--use-full-keymap                ; One time use of full map
+    (setq phw--use-full-keymap nil))
+   (t                                   ; Otherwise default to prefix map
+    (set-transient-map phw--keymap-prefix)))
+
+  (let ((win (selected-window)))
+    (unless (minibuffer-window-active-p win)
+      (let ((buf (current-buffer)))
+        (unless (and (eq win phw--MR-window-selected)
+                     (eq buf phw--MR-buffer-selected))
+          (with-demoted-errors "phw--post-command error: %S"
+            (let ((phw phw--window-PHW)
+                  height)
+              (message "win %s, buf %s, phw %s" win buf phw)
+              (save-window-excursion
+                (maximize-window)
+                (setq height (window-body-height)))
+              (cond
+               ((eq win phw)
+                (let ((point-saved (point)))
+                  (setq height (- height phw-PHW-selected-edit-min))
+                  (goto-char (point-min))
+                  (when (pos-visible-in-window-p (point-max))
+                    (setq height (min height (count-lines (point-min) (point-max)))))
+                  (goto-char point-saved))
+                (message "PHW : %s height %s adjust %s" win height (- height (window-body-height)))
+                )
+               (t
+                (setq phw--MR-window-edit win)
+                (setq height (- height phw-edit-selected-PHW-max))
+                (message "EDIT: %s height %s adjust %s" win height (- height (window-body-height)))
+                ))
+              (window-resize win (- height (window-body-height)))
+              (setq phw--MR-window-selected win)
+              (setq phw--MR-buffer-selected buf))))))))
 
 (defun phw--window-configuration-change ()
   "Bind a buffer to its current window."
