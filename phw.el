@@ -318,7 +318,7 @@ corresponding focus targets.  Only when called interactively will
     (when dst-win
       (phw--move-from-to (current-buffer) (selected-window) dst-win))))
 
-(defun phw-kill-buffer-in-window-template ()
+(defun phw-kill-buffer-in-windows-template ()
   "Kill buffer in window based on triggering key sequence's final key.
 Focus remains in the current window.
 
@@ -327,14 +327,22 @@ This is merely a trampoline for calling `phw-kill-buffer-in-windows'.
 corresponding focus targets.  Only when called interactively will
 `last-command-event' contain an appropriate value to guide execution."
   (interactive)
-  (phw-exchange-windows))
+  (phw-kill-buffer-in-windows))
 
-(defun phw-kill-buffer-in-window ()
+(defun phw-kill-buffer-in-windows ()
   (interactive)
-  (let ((dst-win (phw--window-target-from-key)))
-    (when dst-win
-      (with-selected-window dst-win
-        (kill-buffer)))))
+  (let ((original (selected-window))
+        (kill (window-buffer (phw--window-target-from-key)))
+        (win phw--window-PHW))
+    (loop do
+          (select-window win)
+          (let ((buf (window-buffer win)))
+            (when (eq buf kill)
+              (phw--switch-to-previous-buffer buf win t)))
+          (setq win (next-window win 0))
+          until (eq win phw--window-PHW))
+    (kill-buffer kill)
+    (select-window original t)))
 
 (defun phw-exchange-windows-template ()
   "Exchange window contents based on triggering key sequence's final key.
@@ -516,7 +524,7 @@ displaying prompts) and phw--map-continuation (to complete decoding)."
   (setq phw--keymap (make-sparse-keymap))
   (phw--keymap-add-verb-group 'phw-select-window)
   (phw--keymap-add-verb-group 'phw-move-buffer-to-window "m")
-  (phw--keymap-add-verb-group 'phw-kill-buffer-in-window "k")
+  (phw--keymap-add-verb-group 'phw-kill-buffer-in-windows "k")
   (phw--keymap-add-verb-group 'phw-exchange-windows "x")
 
   (setq phw--keymap-prefix (make-sparse-keymap))
