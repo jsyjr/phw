@@ -25,6 +25,12 @@
 ;; buffers consistently got displayed in this window.  The collection of such
 ;; buffers was always more than just the output of compilation activities.
 ;; Hence I have renamed that window the Persistent Horizontal Window (PHW).
+;;
+;; TODO:
+;; - window prompting:
+;;   . grey out (https://github.com/abo-abo/ace-window)
+;;   . big digits (https://github.com/dimitri/switch-window)
+;;   . highlight window ordinal in non-active mode lines
 
 (require 'cl-macs) ; for cl-loop
 (require 'compile) ; for compilation-buffer-p
