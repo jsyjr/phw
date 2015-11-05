@@ -1,4 +1,4 @@
-;;; phw.el --- a code browser for Emacs  -*- lexical-binding: t -*-
+;;; phw.el --- Persistent Horizontal Window management -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2015 John S. Yates, Jr.
 
@@ -22,15 +22,19 @@
 ;; capabilities.  My interest was only in ECB's ability to provide what it
 ;; termed a "persistent compile window".  This was a horizontal window spanning
 ;; the edit area along with a set of mechanisms for ensuring that certain
-;; buffers consistently got displayed in this window.  The collection of such
-;; buffers was always more than just the output of compilation activities.
-;; Hence I have renamed that window the Persistent Horizontal Window (PHW).
+;; buffers consistently got displayed in that window.  In my use the collection
+;; of such buffers was always more than just the output of compilations.  Hence
+;; I have renamed that window the Persistent Horizontal Window (PHW).
 ;;
 ;; TODO:
 ;; - window prompting:
 ;;   . grey out (https://github.com/abo-abo/ace-window)
 ;;   . big digits (https://github.com/dimitri/switch-window)
 ;;   . highlight window ordinal in non-active mode lines
+;; - highlight fringe (https://github.com/jwiegley/alert/blob/master/alert.el)
+;;     (copy-face 'fringe 'phw--saved-fringe-face)
+;;     (copy-face 'phw--saved-fringe-face 'fringe)
+;;     (set-face-background 'fringe <configured highlight color>)
 
 (require 'cl-macs) ; for cl-loop
 (require 'compile) ; for compilation-buffer-p
