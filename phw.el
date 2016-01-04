@@ -232,7 +232,9 @@ Never call this function directly.  Always use phw--active."
                           (lambda (_win _size _side) phw--window-PHW))
     (set-window-parameter phw 'delete-window
                           (lambda (_win)
-                            (error "delete-window: Cannot delete phw-mode's persistent horizontal window"))))
+                            (error "delete-window: Cannot delete phw-mode's persistent horizontal window")))
+    (with-selected-window phw
+      (switch-to-buffer "*Messages*")))
 
   ;; Establish a base action to direct some buffers to PHW
   (setq display-buffer-base-action '(phw--display-window . nil))
