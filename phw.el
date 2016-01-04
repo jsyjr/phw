@@ -646,20 +646,29 @@ Reassignment is handled by queuing changes to our post-command"
      ((null new-win)
       (setq new-win old-win))
      ((not (eq new-win old-win))
-      (setq phw--window-buffer-updates (cons (cons new-win (current-buffer)) phw--window-buffer-updates))
+      (setq phw--window-buffer-updates (nconc phw--window-buffer-updates (list (cons new-win (current-buffer)))))
       (let ((prev (window-prev-buffers old-win)))
         (when prev
           (let ((prev-buf (caar prev)))
             (with-current-buffer prev-buf
-              (setq-local phw--window old-win))
-            (setq phw--window-buffer-updates (cons (cons old-win prev-buf) phw--window-buffer-updates)))))))
-    (setq-local phw--window new-win)))
+              (setq-local phw--buffer-binding old-win))
+            (setq phw--window-buffer-updates (nconc phw--window-buffer-updates (cons old-win prev-buf))))))))
+    (setq-local phw--buffer-binding new-win)
+    (let ((debug (get-buffer "*PHW Debug*")))
+      (message "WCC!!!")
+      (when debug
+        (with-current-buffer debug
+          (insert "- Window Configuration Change:")
+          (cl-loop for update in phw--window-buffer-updates do
+                   (insert (format " [%s: %s]" (phw-window-ordinal (car update)) (cdr update))))
+          (insert "\n")
+          (set-buffer-modified-p nil))))))
 
 ;; (selected-window)))
 
 
 ;;====================================================
-;; Mode line stuff
+;; Mode line
 ;;====================================================
 
 (defun phw-window-ordinal (&optional window)
