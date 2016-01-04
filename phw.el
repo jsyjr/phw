@@ -321,7 +321,7 @@ This is merely a trampoline for calling `phw--move-buffer-to-windows'.
 corresponding focus targets.  Only when called interactively will
 `last-command-event' contain an appropriate value to guide execution."
   (interactive)
-  (phw-exchange-windows))
+  (phw-move-buffer-to-window))
 
 (defun phw-move-buffer-to-window ()
   (interactive)
