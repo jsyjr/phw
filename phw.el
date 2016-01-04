@@ -743,8 +743,8 @@ list when counting from the PHW."
         (debug (get-buffer-create "*PHW Debug*")))
     (with-current-buffer debug
       (setq-local buffer-undo-list t)
-      (read-only-mode -1)
-      (erase-buffer)
+      ;; (read-only-mode -1)
+      ;; (erase-buffer)
       (insert (format "post-command-hook:\n  %S\n"
                       post-command-hook))
       (insert (format "window-configuration-change-hook:\n  %S\n\n"
@@ -773,8 +773,8 @@ list when counting from the PHW."
                  (setq win (next-window win 0))
                  until (eq phw--window-PHW win))
         (set-buffer-modified-p nil)
-        (view-mode 1)
-        (setq-local phw--window win)
+        ;; (view-mode 1)
+        (setq-local phw--buffer-binding win)
         (set-window-buffer win debug)
         (select-window win t)))))
 
