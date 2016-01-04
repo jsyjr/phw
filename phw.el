@@ -530,7 +530,7 @@ Currently the implementation ignores the contents of ALIST."
 
 (defun phw--create-keymaps ()
   "Create phw-mode's keymap using current `phw-prefix-key'.
-Decomposes that map seen by "C-h k" into phw--map-prefix (to enable
+Decomposes the map seen by "C-h k" into phw--map-prefix (to enable
 displaying prompts) and phw--map-continuation (to complete decoding)."
   (setq phw--keymap (make-sparse-keymap))
   (phw--keymap-add-verb-group 'phw-select-window)
@@ -687,7 +687,7 @@ list when counting from the PHW."
 
 
 ;;====================================================
-;; Echo area stuff
+;; Echo area
 ;;====================================================
 
 (advice-add 'display-message-or-buffer :around #'my/advise-display-message-or-buffer)
