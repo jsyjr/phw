@@ -159,7 +159,7 @@ Any successful match will cause a buffer to be displayed in the PHW."
   "Save window-sides-slots from mode enable time.")
 
 ;; Buffer local
-(defvar-local phw--window nil
+(defvar-local phw--buffer-binding nil
   "A buffer's window binding.  It contains either nil (no
 binding) or a window object.  A non-live window object is
 equivalent to nil.  The system endeavors to display each buffers
@@ -257,7 +257,7 @@ Never call this function directly.  Always use phw--active."
                (buffer-live-p pbuf)      ;   live
                (not (eq pbuf buf))       ;   not BUF
                (with-current-buffer pbuf ;   bound to WIN
-                 (and phw--window (eq phw--window win))))
+                 (and phw--buffer-binding (eq phw--buffer-binding win))))
           elt)))
     (window-prev-buffers win))))
 
@@ -266,12 +266,12 @@ Never call this function directly.  Always use phw--active."
 If PURGE is j-nil exclude BUF from WIN's history.  BUF and WIN are
 actually convenience args as they must be current."
   ;; If BUF bound to window other than WIN then cleanse that window.
-  (let ((bound-window phw--window))
+  (let ((bound-window phw--buffer-binding))
     (when (and bound-window (not (eq bound-window win)))
       (phw--cleanse-window-history buf bound-window)))
   ;; If BUF is not to be purged then bind it to WIN
   (when (null purge)
-    (setq-local phw--window win))
+    (setq-local phw--buffer-binding win))
   ;; Cleanse WIN's history possibly excluding BUF
   (phw--cleanse-window-history (if purge buf nil) win)
   ;; Pass purge as bury-or-kill
@@ -283,10 +283,10 @@ BUF and FROM are actually convenience args as they must be current."
   (phw--switch-to-previous-buffer buf from t)
   (select-window to)
   (with-current-buffer (window-buffer)
-    (when (null phw--window)
-      (setq-local phw--window to)))
+    (when (null phw--buffer-binding)
+      (setq-local phw--buffer-binding to)))
   (set-window-buffer to buf)
-  (setq-local phw--window to))
+  (setq-local phw--buffer-binding to))
 
 
 ;;====================================================
@@ -467,7 +467,7 @@ This function gets registered as the `display-buffer-base-action'.
 Currently the implementation ignores the contents of ALIST."
   (with-current-buffer buffer
     (let ((phw phw--window-PHW)
-          (win phw--window)
+          (win phw--buffer-binding)
           (bname (buffer-name)))
       (unless (and win (window-live-p win))
         (setq win nil))
@@ -497,7 +497,7 @@ Currently the implementation ignores the contents of ALIST."
                         (when (string-match regex bname)
 ;                          (message "--7--: buffer name matches regex")
                           (throw 'window phw))))))))
-      (setq-local phw--window win)
+      (setq-local phw--buffer-binding win)
 ;; (when win
 ;;   (window--display-buffer buffer win 'reuse))
 ;      (message "--9--: return %s: %s" (phw-window-ordinal win) win)
@@ -721,7 +721,7 @@ list when counting from the PHW."
   "Return a string with BUF's window binding and name."
   (with-current-buffer buf
     (format "%s: %s"
-            (if phw--window (phw-window-ordinal phw--window) "_")
+            (if phw--buffer-binding (phw-window-ordinal phw--buffer-binding) "_")
             buf)))
 
 (defun phw-debug ()
