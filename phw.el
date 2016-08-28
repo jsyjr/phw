@@ -345,7 +345,7 @@ corresponding focus targets.  Only when called interactively will
   (let ((original (selected-window))
         (kill (window-buffer (phw--window-target-from-key)))
         (win phw--window-PHW))
-    (loop do
+    (cl-loop do
           (select-window win)
           (let ((buf (window-buffer win)))
             (when (eq buf kill)
@@ -599,7 +599,7 @@ and moving reassigned buffers to their intended windows."
       (let ((hook-funcs window-configuration-change-hook))
         (setq window-configuration-change-hook nil)
         (unwind-protect
-            (loop for (win . buf) in updates do
+            (cl-loop for (win . buf) in updates do
                   (condition-case err
                       (set-window-buffer win buf)
                     (error
@@ -765,10 +765,10 @@ list when counting from the PHW."
                           (phw--show-buffer (window-buffer win))
                           (if (window-dedicated-p win) " - dedicated" "")))
                  (insert (format "  Prev:\n"))
-                 (loop for (buf) in (window-prev-buffers win) do
+                 (cl-loop for (buf) in (window-prev-buffers win) do
                        (insert (concat "    " (phw--show-buffer buf) "\n")))
                  (insert (format "  Next:\n"))
-                 (loop for buf in (window-next-buffers win) do
+                 (cl-loop for buf in (window-next-buffers win) do
                        (insert (concat "    " (phw--show-buffer buf) "\n")))
                  (setq win (next-window win 0))
                  until (eq phw--window-PHW win))
