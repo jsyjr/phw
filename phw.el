@@ -227,8 +227,8 @@ Never call this function directly.  Always use phw--active."
     (window-preserve-size phw t t)
     (set-window-parameter phw 'window-side
                           (if phw-window-at-top-of-frame 'top 'bottom))
-    (set-window-parameter phw 'no-other-window t)
-    (set-window-parameter phw 'split-window
+    (set-window-parameter phw 'no-other-window t) ; other-window skip PHW
+    (set-window-parameter phw 'split-window       ; reuse PHW unsplit
                           (lambda (_win _size _side) phw--window-PHW))
     (set-window-parameter phw 'delete-window
                           (lambda (_win)
@@ -459,11 +459,11 @@ This function implements an analysis parallel to `phw--window-targets'."
 (defun phw--display-window (buffer _alist)
   "Return a window object if BUFFER should be displayed there else nil.
 If BUFFER is bound to a live window then return that.  Otherwise if
-BUFFER satisfies one of the various PHW criteria (its major-mode
-is derived from a mode in `phw-display-in-PHW-major-modes', one of
-the `phw-display-in-PHW-predicates' returns true, it name is equal
-to one in `phw-display-in-PHW-buffer-names' or matches a regex in
-`phw-display-in-PHW-buffer-regexs') then return the PHW.
+BUFFER satisfies one of the various PHW criteria (its major-mode is
+derived from a mode in `phw-display-in-PHW-major-modes', one of the
+`phw-display-in-PHW-predicates' returns true, its name is equal to
+one in `phw-display-in-PHW-buffer-names' or its name matches a regex
+in `phw-display-in-PHW-buffer-regexs') then return the PHW.
 
 This function gets registered as the `display-buffer-base-action'.
 Currently the implementation ignores the contents of ALIST."
