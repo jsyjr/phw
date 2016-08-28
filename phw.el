@@ -780,6 +780,12 @@ list when counting from the PHW."
 
 (define-key phw--keymap (kbd (concat phw-prefix-key " d")) 'phw-debug)
 
+(defun phw--drop-all-buffer-bindings ()
+  "Remove all buffer "
+  (cl-loop for buf in (buffer-list) do
+           (kill-local-variable buf)))
+
+(define-key phw--keymap (kbd (concat phw-prefix-key " D")) 'phw--drop-all-buffer-bindings)
 
 ;;====================================================
 ;; Wrap up
