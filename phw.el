@@ -126,7 +126,7 @@ Any successful match will cause a buffer to be displayed in the PHW."
 (defcustom phw-display-in-PHW-buffer-regexs
   `("\\*[cC]ompilation.*\\*"
     "\\*i?grep.*\\*"
-    "\\*magit: .*\\*"
+;    "\\*magit: .*\\*"
     "\\*magit-[^:]*-popup\\*")
   "Buffer regexs to be displayed in the persistent horizontal window.
 Any successful match will cause a buffer to be displayed in the PHW."
