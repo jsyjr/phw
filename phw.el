@@ -224,6 +224,8 @@ Never call this function directly.  Always use phw--active."
                            (- phw-edit-selected-PHW-max)
                            (if phw-window-at-top-of-frame 'above 'below))))
     (setq phw--window-PHW phw)
+    (set-window-buffer phw "*Messages*")
+    (set-window-dedicated-p phw t)
     (window-preserve-size phw t t)
     (set-window-parameter phw 'window-side
                           (if phw-window-at-top-of-frame 'top 'bottom))
