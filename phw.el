@@ -197,9 +197,11 @@ Always use phw--active."
   (setq window-sides-slots phw--window-sides-slots)
   (setq phw--window-sides-slots nil)
   ;; Destroy the PHW
-  (when (window-live-p phw--window-PHW)
-    (set-window-parameter phw--window-PHW 'delete-window nil)
-    (delete-window phw--window-PHW))
+  (let ((phw phw--window-PHW))
+    (when (window-live-p phw)
+      (set-window-dedicated-p phw nil)
+      (set-window-parameter phw 'delete-window nil)
+      (delete-window phw)))
   (setq phw--window-PHW nil))
 
 (defun phw--make-active ()
