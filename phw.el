@@ -747,7 +747,8 @@ list when counting from the PHW."
       (setq-local buffer-undo-list t)
       ;; (read-only-mode -1)
       ;; (erase-buffer)
-      (insert (format "post-command-hook:\n  %S\n"
+      (goto-char (point-max))
+      (insert (format "\npost-command-hook:\n  %S\n"
                       post-command-hook))
       (insert (format "window-configuration-change-hook:\n  %S\n\n"
                       window-configuration-change-hook))
