@@ -67,7 +67,8 @@
 )
 
 (defcustom phw-window-at-top-of-frame nil
-  "Non-nil positions the persistent horizontal window at top of frame."
+  "Non-nil positions the persistent horizontal window at top of frame.
+Disconcerting without being able to position the minibuffer there too."
   :group 'phw
   :type 'boolean)
 
@@ -144,8 +145,6 @@ Any successful match will cause a buffer to be displayed in the PHW."
 ;; State variables
 ;;====================================================
 
-(defvar phw--debug nil)
-
 ;; Global
 (defvar phw--window-PHW nil
   "Window object of _live_ persistent window else nil.")
@@ -165,6 +164,106 @@ binding) or a window object.  A non-live window object is
 equivalent to nil.  The system endeavors to display each buffers
 in the window to which it is bound.")
 
+
+;;====================================================
+;; Other variables
+;;====================================================
+
+(defvar phw--log nil
+  "Buffer for logging output")
+
+
+;;====================================================
+;; Mode line
+;;====================================================
+
+(defun phw-window-ordinal (&optional window)
+  "Return a string representing WINDOW's navigation ordinal.
+This ordinal is WINDOW's position in the host frame's windows
+list when counting from the PHW."
+  (let ((target (window-normalize-window window t))
+        (win phw--window-PHW)
+        (ordinal 0))
+    (when (and win target)
+      (cl-loop until (eq win target) do
+            (when (window-live-p win)
+              (setq ordinal (1+ ordinal)))
+            (setq win (next-window win 0)))
+      (number-to-string ordinal))))
+
+
+;;====================================================
+;; Logging
+;;====================================================
+
+(defun phw--show-buffer (buf)
+  "Return a string with BUF's window binding and name."
+  (with-current-buffer buf
+    (let ((bnd phw--buffer-binding))
+      (format "[%s: #%s%s]"
+              buf
+              (if phw--buffer-binding (phw-window-ordinal phw--buffer-binding) "_")
+              (if (and bnd (window-live-p bnd) (window-dedicated-p bnd)) " - dedicated" "")))))
+
+(defun phw--show-state ()
+  "Return a string with selected-window, current-buffer and MR windows"
+  (format "state:{ current= <#%s: %s>, MR selected= <#%s: %s>, MR edit= #%s }"
+             (phw-window-ordinal (selected-window)) (current-buffer)
+             (phw-window-ordinal phw--MR-window-selected) phw--MR-buffer-selected
+             (phw-window-ordinal phw--MR-window-edit)))
+
+(defun phw--log-append (str)
+  "Append the supplied string to the log buffer"
+    (with-current-buffer phw--log
+      (goto-char (point-max))
+      (insert str)
+      (set-buffer-modified-p nil)))
+
+(defun phw--log-show (win)
+  ""
+    (with-current-buffer phw--log
+      (setq-local phw--buffer-binding win)
+      (let ((prot (window-dedicated-p win)))
+        (set-window-dedicated-p win nil)
+        (unwind-protect
+            (set-window-buffer win phw--log)
+          (set-window-dedicated-p win prot)
+        (select-window win t)))))
+
+(defun phw-log ()
+  "Pop up a display of windows, their buffers and history lists."
+  (interactive)
+  (phw--log-append
+   (format "
+post-command-hook:
+  %S
+window-configuration-change-hook:
+  %S
+%s
+
+" post-command-hook window-configuration-change-hook (phw--show-state)))
+
+  (let ((win phw--window-PHW))
+    (cl-loop with win = phw--window-PHW for ordinal by 1 do
+             (phw--log-append
+              (format "#%d: %s  %s\n  Prev:\n" ordinal win
+                      (phw--show-buffer (window-buffer win))))
+             (cl-loop for (buf) in (window-prev-buffers win) do
+                      (phw--log-append (concat "    " (phw--show-buffer buf) "\n")))
+             (phw--log-append (format "  Next:\n"))
+             (cl-loop for buf in (window-next-buffers win) do
+                      (phw--log-append (concat "    " (phw--show-buffer buf) "\n")))
+             (setq win (next-window win 0))
+             until (eq phw--window-PHW win)) ; win is now PHW
+    (phw--log-append (format "\n"))
+    (phw--log-show win)))
+
+(defun phw--drop-all-buffer-bindings ()
+  "Remove all buffer "
+  (interactive)
+  (cl-loop for buf in (buffer-list) do
+           (with-current-buffer buf
+             (kill-local-variable 'phw--buffer-binding))))
 
 ;;====================================================
 ;; Activaton and deactivation
@@ -207,6 +306,15 @@ Always use phw--active."
 (defun phw--make-active ()
   "Effect globals changes necessary to make phw-mode active.
 Never call this function directly.  Always use phw--active."
+
+  ;; Make sure we have a buffer to collect logging info
+  (let ((log (get-buffer-create "*PHW Log*")))
+    (setq phw--log log)
+    (with-current-buffer log
+;      (view-mode 1)
+      (setq-local buffer-undo-list t)
+      (erase-buffer)))
+
   ;; Save window-sides-slots and install our version
   (let ((slots window-sides-slots))
     (unless phw--window-sides-slots
@@ -226,7 +334,7 @@ Never call this function directly.  Always use phw--active."
                            (- phw-edit-selected-PHW-max)
                            (if phw-window-at-top-of-frame 'above 'below))))
     (setq phw--window-PHW phw)
-    (set-window-buffer phw "*Messages*")
+    (set-window-buffer phw phw--log)
     (set-window-dedicated-p phw t)
     (window-preserve-size phw t t)
     (set-window-parameter phw 'window-side
@@ -241,7 +349,7 @@ Never call this function directly.  Always use phw--active."
       (switch-to-buffer "*Messages*")))
 
   ;; Establish a base action to direct some buffers to PHW
-  (setq display-buffer-base-action '(phw--display-window . nil))
+  (setq display-buffer-base-action '(phw--choose-window . nil))
 
   (add-hook 'post-command-hook 'phw--post-command)
   (add-hook 'window-configuration-change-hook
@@ -271,6 +379,9 @@ Never call this function directly.  Always use phw--active."
   "Replace BUF by displaying a previous buffer from WIN's history.
 If PURGE is j-nil exclude BUF from WIN's history.  BUF and WIN are
 actually convenience args as they must be current."
+  (phw--log-append
+   (format "  switch #%s to prev%s\n" (phw-window-ordinal win)
+           (if purge (format "; purge %s" buf) "")))
   ;; If BUF bound to window other than WIN then cleanse that window.
   (let ((bound-window phw--buffer-binding))
     (when (and bound-window (not (eq bound-window win)))
@@ -286,6 +397,8 @@ actually convenience args as they must be current."
 (defun phw--move-from-to (buf from to)
   "Purge BUF from FROM's window & history; display & select BUF in TO.
 BUF and FROM are actually convenience args as they must be current."
+  (phw--log-append (format " move %s from #%s to #%s\n"
+                           buf (phw-window-ordinal from) (phw-window-ordinal to)))
   (phw--switch-to-previous-buffer buf from t)
   (select-window to)
   (with-current-buffer (window-buffer)
@@ -313,6 +426,7 @@ corresponding focus targets.  Only when called interactively will
   (interactive)
   (let ((dst-win (phw--window-target-from-key)))
     (when dst-win
+      (phw--log-append (format "KB: select #%s\n" (phw-window-ordinal dst-win)))
       (select-window dst-win))))
 
 (defun phw-move-buffer-to-window-template ()
@@ -331,6 +445,7 @@ corresponding focus targets.  Only when called interactively will
   (interactive)
   (let ((dst-win (phw--window-target-from-key)))
     (when dst-win
+      (phw--log-append (format "KB: move to #%s\n" (phw-window-ordinal dst-win)))
       (phw--move-from-to (current-buffer) (selected-window) dst-win))))
 
 (defun phw-kill-buffer-in-windows-template ()
@@ -349,6 +464,7 @@ corresponding focus targets.  Only when called interactively will
   (let ((original (selected-window))
         (kill (window-buffer (phw--window-target-from-key)))
         (win phw--window-PHW))
+    (phw--log-append (format "KB: kill #%s\n" (phw-window-ordinal kill)))
     (cl-loop do
           (select-window win)
           (let ((buf (window-buffer win)))
@@ -376,6 +492,7 @@ corresponding focus targets.  Only when called interactively will
   (interactive)
   (let ((dst-win (phw--window-target-from-key)))
     (when dst-win
+      (phw--log-append (format "KB: exchange with #%s\n" (phw-window-ordinal dst-win)))
       (let* ((dst-buf (window-buffer dst-win))
              (src-win (selected-window))
              (src-buf (current-buffer)))
@@ -460,7 +577,7 @@ This function implements an analysis parallel to `phw--window-targets'."
 ;; Window selection
 ;;====================================================
 
-(defun phw--display-window (buffer _alist)
+(defun phw--choose-window (buffer _alist)
   "Return a window object if BUFFER should be displayed there else nil.
 If BUFFER is bound to a live window then return that.  Otherwise if
 BUFFER satisfies one of the various PHW criteria (its major-mode is
@@ -472,42 +589,35 @@ in `phw-display-in-PHW-buffer-regexs') then return the PHW.
 This function gets registered as the `display-buffer-base-action'.
 Currently the implementation ignores the contents of ALIST."
   (with-current-buffer buffer
-    (let ((phw phw--window-PHW)
+    (let ((bname (buffer-name))
           (win phw--buffer-binding)
-          (bname (buffer-name)))
-      (unless (and win (window-live-p win))
-        (setq win nil))
-;      (message "--1--: buffer %s, mode %s, win %s" buffer major-mode win)
+          (phw phw--window-PHW))
       (setq win (catch 'window
                   (cond
-                   (win ; bound to a live window
-;                    (message "--2--: already bound")
+                   ((and win (window-live-p win)) ; bound to a live window
+                    (phw--log-append (format "    (choose-window %s) => #%s: bound\n" buffer (phw-window-ordinal win)))
                     (throw 'window win))
                    ((not (window-live-p phw)) ; ?no PHW?
-;                    (message "--3--: no live PHW!")
-                    (throw 'window nil))
+                    (error "(choose-window %s) PHW does not exist!" buffer))
                    (t
                     (when (derived-mode-p phw-display-in-PHW-major-modes)
-;                      (message "--4--: major mode => PHW")
+                      (phw--log-append (format "    (choose-window %s) => PHW: major mode\n" buffer))
                       (throw 'window phw))
                     (dolist (predicate phw-display-in-PHW-predicates)
                       (when (and (fboundp predicate) (funcall predicate buffer))
-;                        (message "--5--: buffer satisfies some predicate")
+                        (phw--log-append (format "    (choose-window %s) => PHW: predicate satisfied\n" buffer))
                         (throw 'window phw)))
                     (dolist (name phw-display-in-PHW-buffer-names)
                       (when (eq t (compare-strings name nil nil bname nil nil nil))
-;                        (message "--6--: buffer name == string")
+                        (phw--log-append (format "    (choose-window %s) => PHW: string match\n" buffer))
                         (throw 'window phw)))
                     (dolist (regex phw-display-in-PHW-buffer-regexs)
                       (save-match-data
                         (when (string-match regex bname)
-;                          (message "--7--: buffer name matches regex")
-                          (throw 'window phw))))))))
-      (setq-local phw--buffer-binding win)
-;; (when win
-;;   (window--display-buffer buffer win 'reuse))
-;      (message "--9--: return %s: %s" (phw-window-ordinal win) win)
-      win)))
+                          (phw--log-append (format "    (choose-window %s) => PHW: regex match\n" buffer))
+                          (throw 'window phw))))
+                    (phw--log-append (format "    (choose-window %s) => nil\n" buffer))
+                    (throw 'window nil))))))))
 
 
 ;;====================================================
@@ -534,9 +644,13 @@ Currently the implementation ignores the contents of ALIST."
 
 (defun phw--create-keymaps ()
   "Create phw-mode's keymap using current `phw-prefix-key'.
-Decomposes the map seen by "C-h k" into phw--map-prefix (to enable
+Decomposes the map seen by \"C-h k\" into phw--map-prefix (to enable
 displaying prompts) and phw--map-continuation (to complete decoding)."
   (setq phw--keymap (make-sparse-keymap))
+
+  (define-key phw--keymap (kbd (concat phw-prefix-key " l")) 'phw-log)
+  (define-key phw--keymap (kbd (concat phw-prefix-key " D")) 'phw--drop-all-buffer-bindings)
+
   (phw--keymap-add-verb-group 'phw-select-window)
   (phw--keymap-add-verb-group 'phw-move-buffer-to-window "m")
   (phw--keymap-add-verb-group 'phw-kill-buffer-in-windows "k")
@@ -544,7 +658,7 @@ displaying prompts) and phw--map-continuation (to complete decoding)."
 
   (setq phw--keymap-prefix (make-sparse-keymap))
   (define-key phw--keymap-prefix (kbd phw-prefix-key) 'phw--caught-prefix)
-  (define-key phw--keymap-prefix (kbd "C-h") 'phw--caught-prefix))
+  (define-key phw--keymap-prefix (kbd "C-h"         ) 'phw--caught-prefix))
 
 ;; Perform construction during load.
 (phw--create-keymaps)
@@ -579,16 +693,15 @@ At all other times phw--kepmap-prefix is in effect.")
   (setq phw--use-full-keymap t)
   (setq unread-command-events (list last-command-event))
   (when (eq last-command-event (aref (kbd phw-prefix-key) 0))
-    (message "-- Prompt ^^")
     (add-hook 'pre-command-hook 'phw--pre-command-drop-prompt)))
 
 (defun phw--pre-command-drop-prompt ()
   "Resume using prefix map following single command use of full keymap."
-  (message "-- Prompt vv")
   (remove-hook 'pre-command-hook 'phw--pre-command-drop-prompt))
 
 (defun phw--post-command ()
-  "A post-command-hook function: reset keymap, adjust the PHW's height.
+  "A post-command-hook function: reset keymap, apply updates casuing
+buffers to be displayed in windows, and adjust the PHW's height.
 Also handles setting-up the appropriate keymap for every command cycle
 and moving reassigned buffers to their intended windows."
   (cond
@@ -602,12 +715,13 @@ and moving reassigned buffers to their intended windows."
       (setq phw--window-buffer-updates nil)
       (let ((hook-funcs window-configuration-change-hook))
         (setq window-configuration-change-hook nil)
+        (set-window-dedicated-p phw--window-PHW nil)
         (unwind-protect
             (cl-loop for (win . buf) in updates do
-                  (condition-case err
-                      (set-window-buffer win buf)
-                    (error
-                     (message "!ERROR: phw--post-command (updating window buffers): %s" err))))
+                     (condition-case err
+                         (set-window-buffer win buf)
+                       (error "!ERROR: phw--post-command (updating window buffers): %s" err)))
+          (set-window-dedicated-p phw--window-PHW t)
           (setq window-configuration-change-hook hook-funcs)))))
 
   (let ((win (selected-window)))
@@ -618,7 +732,7 @@ and moving reassigned buffers to their intended windows."
           (with-demoted-errors "phw--post-command error: %S"
             (let ((phw phw--window-PHW)
                   height)
-              (message "phw--post-command: win %s, buf %s, PHW %s" win buf phw)
+              (phw--log-append (format "  PCH - %s\n" (phw--show-state)))
               (save-window-excursion
                 (maximize-window)
                 (setq height (window-body-height)))
@@ -630,64 +744,64 @@ and moving reassigned buffers to their intended windows."
                   (when (pos-visible-in-window-p (point-max))
                     (setq height (min height (count-lines (point-min) (point-max)))))
                   (goto-char point-saved))
-                (message "PHW : %s height %s adjust %s" win height (- height (window-body-height)))
+                (phw--log-append (format "  PCH - PHW : %s height %s adjust %s\n" win height (- height (window-body-height))))
                 )
                (t
                 (setq phw--MR-window-edit win)
                 (setq height (- height phw-edit-selected-PHW-max))
-                (message "EDIT: %s height %s adjust %s" win height (- height (window-body-height)))
+                (phw--log-append (format "  PCH - EDIT: %s height %s adjust %s\n" win height (- height (window-body-height))))
                 ))
               (window-resize win (- height (window-body-height)))
               (setq phw--MR-window-selected win)
               (setq phw--MR-buffer-selected buf))))))))
 
+(defun phw--append-update (update-win update-buf)
+  "Append an update unless the same update already appears
+in the queue and no interfering updates appear later."
+  (let ((match nil))
+    (cl-loop for (win . buf) in phw--window-buffer-updates do
+             (cond
+              ((eq update-win win)
+               (setq match (eq update-buf buf)))
+              ((eq update-buf buf)
+               (setq match nil))))
+    (unless match
+      (let ((update (list (cons update-win update-buf))))
+        (setq phw--window-buffer-updates
+              (if phw--window-buffer-updates
+                  (nconc phw--window-buffer-updates update)
+                update))))))
+
 (defun phw--window-configuration-change ()
   "Bind a buffer to its current (or possibly reassigned) window.
 Reassignment is handled by queuing changes to our post-command"
-  (let ((old-win (selected-window))
-        (new-win (phw--display-window (current-buffer) nil)))
-    (cond
-     ((null new-win)
+  (let* ((cur-buf (current-buffer))
+         (bnd-win phw--buffer-binding)
+         (old-win (selected-window))
+         (new-win (display-buffer cur-buf)))
+    (when (null new-win) ;; If current buffer has no explicit new binding then reuse selected
       (setq new-win old-win))
-     ((not (eq new-win old-win))
-      (setq phw--window-buffer-updates (nconc phw--window-buffer-updates (list (cons new-win (current-buffer)))))
+    (when (not (eq bnd-win new-win))
+      (phw--log-append (format "  WCC - rebind buffer %s: #%s -> #%s\n"
+                               cur-buf
+                               (phw-window-ordinal bnd-win)
+                               (phw-window-ordinal new-win)))
+      ;; Bind current buffer to chosen window
+      (setq-local phw--buffer-binding new-win))
+    (when (not (eq new-win old-win))
+      ;; Record an update to display it in its new window
+      (phw--append-update new-win (current-buffer))
+      ;; Record an update to display the "revealed" buffer in the old window
       (let ((prev (window-prev-buffers old-win)))
         (when prev
           (let ((prev-buf (caar prev)))
             (with-current-buffer prev-buf
               (setq-local phw--buffer-binding old-win))
-            (setq phw--window-buffer-updates (nconc phw--window-buffer-updates (cons old-win prev-buf))))))))
-    (setq-local phw--buffer-binding new-win)
-    (let ((debug (get-buffer "*PHW Debug*")))
-      (message "WCC!!!")
-      (when debug
-        (with-current-buffer debug
-          (insert "- Window Configuration Change:")
-          (cl-loop for update in phw--window-buffer-updates do
-                   (insert (format " [%s: %s]" (phw-window-ordinal (car update)) (cdr update))))
-          (insert "\n")
-          (set-buffer-modified-p nil))))))
-
-;; (selected-window)))
-
-
-;;====================================================
-;; Mode line
-;;====================================================
-
-(defun phw-window-ordinal (&optional window)
-  "Return a string representing WINDOW's navigation ordinal.
-This ordinal is WINDOW's position in the host frame's windows
-list when counting from the PHW."
-  (let ((target (window-normalize-window window t))
-        (win phw--window-PHW)
-        (ordinal 0))
-    (when (and win target)
-      (cl-loop until (eq win target) do
-            (when (window-live-p win)
-              (setq ordinal (1+ ordinal)))
-            (setq win (next-window win 0)))
-      (number-to-string ordinal))))
+            (phw--append-update old-win prev-buf))))
+      (phw--log-append "  WCC - queued updates:")
+      (cl-loop for update in phw--window-buffer-updates do
+               (phw--log-append (format " [#%s: %s]" (phw-window-ordinal (car update)) (cdr update))))
+      (phw--log-append "\n"))))
 
 
 ;;====================================================
@@ -727,72 +841,6 @@ list when counting from the PHW."
 
 (advice-add 'delete-window :after #'phw--advise-delete-window)
 
-
-;;====================================================
-;; Debugging
-;;====================================================
-
-(defun phw--show-buffer (buf)
-  "Return a string with BUF's window binding and name."
-  (with-current-buffer buf
-    (format "%s: %s"
-            (if phw--buffer-binding (phw-window-ordinal phw--buffer-binding) "_")
-            buf)))
-
-(defun phw-debug ()
-  "Pop up a display of windows, their buffers and history lists."
-  (interactive)
-  (let ((cur-win (selected-window))
-        (cur-buf (current-buffer))
-        (debug (get-buffer-create "*PHW Debug*")))
-    (with-current-buffer debug
-      (setq-local buffer-undo-list t)
-      ;; (read-only-mode -1)
-      ;; (erase-buffer)
-      (goto-char (point-max))
-      (insert (format "\npost-command-hook:\n  %S\n"
-                      post-command-hook))
-      (insert (format "window-configuration-change-hook:\n  %S\n\n"
-                      window-configuration-change-hook))
-      (insert (format "Current: window %s : %s\n"
-                      (phw-window-ordinal cur-win)
-                      cur-buf))
-      (insert (format "MR:      window %s : %s\n"
-                      (phw-window-ordinal phw--MR-window-selected)
-                      phw--MR-buffer-selected))
-      (insert (format "MR edit: window %s\n\n"
-                      (phw-window-ordinal phw--MR-window-edit)))
-
-      (let ((win phw--window-PHW))
-        (cl-loop with win = phw--window-PHW for ordinal by 1 do
-                 (insert
-                  (format "Window %d: %s  [%s%s]\n" ordinal win
-                          (phw--show-buffer (window-buffer win))
-                          (if (window-dedicated-p win) " - dedicated" "")))
-                 (insert (format "  Prev:\n"))
-                 (cl-loop for (buf) in (window-prev-buffers win) do
-                       (insert (concat "    " (phw--show-buffer buf) "\n")))
-                 (insert (format "  Next:\n"))
-                 (cl-loop for buf in (window-next-buffers win) do
-                       (insert (concat "    " (phw--show-buffer buf) "\n")))
-                 (setq win (next-window win 0))
-                 until (eq phw--window-PHW win))
-        (set-buffer-modified-p nil)
-        ;; (view-mode 1)
-        (setq-local phw--buffer-binding win)
-        (set-window-buffer win debug)
-        (select-window win t)))))
-
-(define-key phw--keymap (kbd (concat phw-prefix-key " d")) 'phw-debug)
-
-(defun phw--drop-all-buffer-bindings ()
-  "Remove all buffer "
-  (interactive)
-  (cl-loop for buf in (buffer-list) do
-           (with-current-buffer buf
-             (kill-local-variable 'phw--buffer-binding))))
-
-(define-key phw--keymap (kbd (concat phw-prefix-key " D")) 'phw--drop-all-buffer-bindings)
 
 ;;====================================================
 ;; Wrap up
