@@ -70,7 +70,8 @@
 
 (defcustom phw-window-at-top-of-frame nil
   "Non-nil positions the persistent horizontal window at top of frame.
-Disconcerting without being able to position the minibuffer there too."
+Probably disconcerting without being able to position the minibuffer
+there too and position mode-lines at top of buffers."
   :group 'phw
   :type 'boolean)
 
