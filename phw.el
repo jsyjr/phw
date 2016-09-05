@@ -30,11 +30,13 @@
 ;; - window prompting:
 ;;   . grey out (https://github.com/abo-abo/ace-window)
 ;;   . big digits (https://github.com/dimitri/switch-window)
+;;      but omit digit on currently selected window
 ;;   . highlight window ordinal in non-active mode lines
 ;; - highlight fringe (https://github.com/jwiegley/alert/blob/master/alert.el)
 ;;     (copy-face 'fringe 'phw--saved-fringe-face)
 ;;     (copy-face 'phw--saved-fringe-face 'fringe)
 ;;     (set-face-background 'fringe <configured highlight color>)
+;;   [Probably will not work: fringe is a frame, not a buffer, property]
 
 (require 'cl-macs) ; for cl-loop
 (require 'compile) ; for compilation-buffer-p
