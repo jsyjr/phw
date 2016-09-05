@@ -387,7 +387,7 @@ actually convenience args as they must be current."
     (when (and bound-window (not (eq bound-window win)))
       (phw--cleanse-window-history buf bound-window)))
   ;; If BUF is not to be purged then bind it to WIN
-  (when (null purge)
+  (unless purge
     (setq-local phw--buffer-binding win))
   ;; Cleanse WIN's history possibly excluding BUF
   (phw--cleanse-window-history (if purge buf nil) win)
@@ -402,7 +402,7 @@ BUF and FROM are actually convenience args as they must be current."
   (phw--switch-to-previous-buffer buf from t)
   (select-window to)
   (with-current-buffer (window-buffer)
-    (when (null phw--buffer-binding)
+    (unless phw--buffer-binding
       (setq-local phw--buffer-binding to)))
   (set-window-buffer to buf)
   (setq-local phw--buffer-binding to))
@@ -779,7 +779,7 @@ Reassignment is handled by queuing changes to our post-command"
          (bnd-win phw--buffer-binding)
          (old-win (selected-window))
          (new-win (display-buffer cur-buf)))
-    (when (null new-win) ;; If current buffer has no explicit new binding then reuse selected
+    (unless new-win ;; If current buffer has no explicit new binding then reuse selected
       (setq new-win old-win))
     (when (not (eq bnd-win new-win))
       (phw--log-append (format "  WCC - rebind buffer %s: #%s -> #%s\n"
