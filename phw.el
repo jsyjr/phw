@@ -1,6 +1,6 @@
 ;;; phw.el --- Persistent Horizontal Window management -*- lexical-binding: t -*-
 
-;; Copyright (C) 2015-2016 John S. Yates, Jr.
+;; Copyright (C) 2015-2017 John S. Yates, Jr.
 
 ;; This program is free software; you can redistribute it and/or modify it under
 ;; the terms of the GNU General Public License as published by the Free Software
@@ -37,6 +37,12 @@
 ;;     (copy-face 'phw--saved-fringe-face 'fringe)
 ;;     (set-face-background 'fringe <configured highlight color>)
 ;;   [Probably will not work: fringe is a frame, not a buffer, property]
+;;
+;; RESEARCH:
+;; - https://github.com/dimitri/switch-window
+;; - https://github.com/deb0ch/emacs-winum
+;; - https://www.reddit.com/r/emacs/comments/6bu3yt/fast_buffer_switching/
+;; - http://mbork.pl/2014-04-04_Fast_buffer_switching_and_friends
 
 (require 'cl-macs) ; for cl-loop
 (require 'compile) ; for compilation-buffer-p
