@@ -41,6 +41,7 @@
 ;; RESEARCH:
 ;; - https://github.com/dimitri/switch-window
 ;; - https://github.com/deb0ch/emacs-winum
+;; - https://github.com/abo-abo/ace-window
 ;; - https://www.reddit.com/r/emacs/comments/6bu3yt/fast_buffer_switching/
 ;; - http://mbork.pl/2014-04-04_Fast_buffer_switching_and_friends
 
